@@ -56,6 +56,12 @@ function cloneScenario(sc) {
   if (sc.containerSlots) out.containerSlots = Object.assign({}, sc.containerSlots);
   out.bankTabIDs = {};
   for (const k of Object.keys(sc.bankTabIDs || {})) out.bankTabIDs[k] = (sc.bankTabIDs[k] || []).slice();
+  // 逐 itemID / 逐装备槽的映射同样要各自一份：setItemCount / setEquipped 等 setter
+  // 是**直接写入这些对象**的，浅拷贝会让改动泄漏到后续用例
+  //（此前只防了容器与银行页，装备与计数表是新增的串扰面）。
+  for (const key of ['equip', 'itemMeta', 'itemCount', 'itemCountBank', 'itemCountReagent', 'itemCountAccount']) {
+    out[key] = Object.assign({}, sc[key]);
+  }
   if (sc.savedVars && typeof sc.savedVars === 'object') out.savedVars = {};   // 每次全新，防跨测试串扰
   return out;
 }
@@ -860,11 +866,14 @@ function renderWith(itemID, opts) {
 }
 
 {
-  // 12e 已装备件数不计入「背」（0.9.4 修复：GetItemCount 基准值含已装备）
-  const { mock } = load(SCENARIO);
+  // 12e 已装备件数不计入「背」
+  //（0.9.4 曾"修"过一次，但用的是真机不存在的 C_Item.GetEquippedCount，从未生效；
+  //  0.9.7 改为遍历装备槽自数。已装备态的权威来源 = 装备槽，装置用 GetInventoryItemID 暴露。）
+  // 装备在**登录前**就位：检验 PLAYER_ENTERING_WORLD 那一刻构建的装备表（真机时序即如此）。
+  const sc = Object.assign({}, SCENARIO, { equip: { 11: { itemID: 700 }, 12: { itemID: 700 } } });
+  const { mock } = load(sc);
   lifecycle(mock);
-  mock.setItemCount(700, 5);          // 基准计数 5（含已装备 2）
-  mock.setItemCountEquipped(700, 2);
+  mock.setItemCount(700, 5);          // 基准计数 5（含已装备 2，与客户端口径一致）
   mock.setItemCountBank(700, 3);
   mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 700 }, [{ type: 'ItemName', text: 'I700' }]);
   const lines = readLines(mock, 'GameTooltip').map((l) => l.text);
@@ -873,6 +882,34 @@ function renderWith(itemID, opts) {
   ok(self && self.indexOf('背 3') !== -1, `12) 「背」= 5−2（装备）= 3（实际：${self}）`);
   ok(self && self.indexOf('银 3') !== -1, `12) 「银」不受装备数影响 = 3（实际：${self}）`);
   ok(self && self.indexOf(': 6') !== -1, `12) 总数 = 3+3 = 6，不含已装备（实际：${self}）`);
+
+  // 12f 换装后已显示的提示框立即更新（PLAYER_EQUIPMENT_CHANGED → 重建装备表 → 缓存失效 → 重放）
+  // 先记下换装前的显示值——必须断言这个"变化"本身，否则在装备数恒为 0 的坏状态下本用例会假通过。
+  const shownBefore = readLines(mock, 'GameTooltip').map((l) => l.text).join(' ');
+  ok(/背 3/.test(shownBefore), `12) 换装前已显示「背 3」（实际：${shownBefore}）`);
+  // 卸下两件：物品仍在身上（基准计数不变），但不再计入装备数 → 「背」应升到 5。
+  mock.setEquipped(700, 0);
+  mock.fireEvent('PLAYER_EQUIPMENT_CHANGED', 11, false);
+  mock.advanceTime(0.1);              // 刷新去抖（0.05）
+  mock.advanceTime(0.1);              // 同轮新建的定时器要下一轮才触发
+  const after = readLines(mock, 'GameTooltip').map((l) => l.text).join(' ');
+  ok(/背 5/.test(after), `12) 卸下装备后「背」变为 5（实际：${after}）`);
+  ok(!/背 3/.test(after), '12) 卸装前的旧数字不再残留');
+}
+
+{
+  // 12g 装置保真度门禁：模拟环境**不得**提供真机不存在的 API 与枚举成员。
+  // 这两样都曾真实存在过，并分别掩盖了一个缺陷：
+  //   · C_Item.GetEquippedCount 桩 → 让"减装备数"的失效修复在 202/202 全绿下藏了三个版本
+  //   · Enum.BagIndex.BankBag 假成员 → 让 Scan.lua 里引用它的死代码"看起来能跑"
+  const { mock } = load(SCENARIO);
+  lifecycle(mock);
+  ok(mock.evalLua('return C_Item.GetEquippedCount').value == null,
+     '12) 装置不提供 C_Item.GetEquippedCount（12.1.0 真机没有）');
+  ok(mock.evalLua('return GetEquippedCount').value == null,
+     '12) 装置不提供全局 GetEquippedCount（12.1.0 真机没有）');
+  ok(mock.evalLua('return Enum.BagIndex.BankBag').value == null,
+     '12) 装置不提供 Enum.BagIndex.BankBag（11.2.7 起已无此成员）');
 }
 
 /* ── 13. 0.9.4 追加：实时刷新 / 银行疑似空复核 / 斜杠端到端分发 ────── */

@@ -63,12 +63,11 @@ function defaultScenario() {
       faction: 'Alliance',
     },
     containers: {},                          // bagID -> [{itemID,stackCount,itemName,iconFileID,quality}]
-    equip: {},                               // slot -> {itemID,link,texture,quality}
+    equip: {},                               // slot -> {itemID,link,texture,quality}；已装备态的**唯一事实源**
     bankTabIDs: { 0: [6, 7, 9], 1: [], 2: [12, 14] },  // BankType: Character/Guild/Account
     itemMeta: {},                            // itemID -> {name,icon,quality}
-    itemCount: {},                           // itemID -> count（C_Item.GetItemCount 背包部分）
+    itemCount: {},                           // itemID -> C_Item.GetItemCount 基准计数（**含已装备**，与客户端口径一致）
     itemCountBank: {},                       // itemID -> 角色银行（includeBank=true 时相加）
-    itemCountEquipped: {},                   // itemID -> 已装备件数（GetItemCount 基准值含它；GetEquippedCount 单独提供）
     itemCountReagent: {},                    // itemID -> 材料银行（includeReagentBank=true 时相加）
     itemCountAccount: {},                    // itemID -> 战团银行（includeAccountBank=true 时相加）
     money: 0,
@@ -748,8 +747,13 @@ function createWowMock(opts) {
     };
 
     // —— C_Item ——
+    // 保真度铁律：装置只提供**真机存在**的 API。12.1.0 的 C_Item 里**没有**
+    // GetEquippedCount（apidoc 12.1.0/12.0.7/11.2.7 零命中 + wiki 无页面，双源确认），
+    // 所以这里也绝不再放这个桩——插件的已装备数必须靠 GetInventoryItemID 遍历装备槽得出。
+    // （2026-09-30：此桩曾长期存在，导致"减装备数"的失效修复在 202/202 全绿下被掩盖。）
     g.C_Item = {
-      // 与游戏一致：第 2/4/5 个布尔参数分别把银行 / 材料银行 / 战团银行计入
+      // 与游戏一致：第 2/4/5 个布尔参数分别把银行 / 材料银行 / 战团银行计入。
+      // 基准计数 = itemCount，按客户端口径**包含已装备**件数。
       GetItemCount: function (Ls) {
         logApi('C_Item.GetItemCount', Ls);
         const arg = jsArg(Ls, 1);
@@ -761,26 +765,21 @@ function createWowMock(opts) {
         lua.lua_pushnumber(Ls, n);
         return 1;
       },
-      // 与真实客户端一致的口径：GetItemCount 的基准计数**包含已装备**件数，
-      // 已装备数由本函数单独提供（插件要"不含装备"的背包数就得自己减）。
-      GetEquippedCount: function (Ls) {
-        logApi('C_Item.GetEquippedCount', Ls);
-        const key = jsArg(Ls, 1);
-        lua.lua_pushnumber(Ls, (key != null && scenario.itemCountEquipped && scenario.itemCountEquipped[key]) || 0);
-        return 1;
-      },
     };
 
     // —— Enum ——
     g.Enum = {
       BankType: { Character: 0, Guild: 1, Account: 2 },
+      // 逐字照抄 12.1.0 apidoc 的 BagIndexConstantsDocumentation（20 个成员，MinValue=-3, MaxValue=16）。
+      // 注意没有 BankBag —— 11.2.7 起就没有这个成员了，此处曾放过 `BankBag: -4` 的假成员，
+      // 让插件里引用它的死代码在测试中"看起来能跑"。不要再加回来。
       BagIndex: {
+        Accountbanktab: -3, Characterbanktab: -2, Keyring: -1,
         Backpack: 0, Bag_1: 1, Bag_2: 2, Bag_3: 3, Bag_4: 4, ReagentBag: 5,
         CharacterBankTab_1: 6, CharacterBankTab_2: 7, CharacterBankTab_3: 8,
         CharacterBankTab_4: 9, CharacterBankTab_5: 10, CharacterBankTab_6: 11,
         AccountBankTab_1: 12, AccountBankTab_2: 13, AccountBankTab_3: 14,
         AccountBankTab_4: 15, AccountBankTab_5: 16,
-        BankBag: -4, Keyring: -1, CharacterBankTab: -2, AccountBankTab: -3,
       },
       TooltipDataType: { Item: 1, Unit: 2, Coroutine: 3 },
       TooltipDataLineType: LINE_TYPES,
@@ -878,6 +877,10 @@ function createWowMock(opts) {
     };
     g.UnitName = function (Ls) { lua.lua_pushstring(Ls, utf8ls(scenario.player.name)); return 1; };
     g.UnitExists = function (Ls) { lua.lua_pushboolean(Ls, true); return 1; };
+
+    // FrameXML 的装备槽常量（真机由 FrameXML 提供；插件对缺失有兜底，但装置应给真的）
+    g.INVSLOT_FIRST_EQUIPPED = 1;
+    g.INVSLOT_LAST_EQUIPPED = 19;
 
     g.GetInventoryItemID = function (Ls) {
       const us = unitSlot(Ls);
@@ -1345,7 +1348,18 @@ function createWowMock(opts) {
     setBankTabs(bankType, ids) { scenario.bankTabIDs[bankType] = ids; },
     setItemMeta(id, meta) { scenario.itemMeta[id] = meta; },
     setItemCount(id, count) { scenario.itemCount[id] = count; },
-    setItemCountEquipped(id, count) { scenario.itemCountEquipped[id] = count; },
+    // 让 itemID 恰好占据 count 个装备槽（自 1 号槽起找空位），并清掉其它持有它的槽。
+    // 已装备态只认 scenario.equip（= 真机 GetInventoryItemID 的数据源），不再有并行计数模型。
+    setEquipped(itemID, count) {
+      for (const k of Object.keys(scenario.equip)) {
+        if (scenario.equip[k] && scenario.equip[k].itemID === itemID) delete scenario.equip[k];
+      }
+      let placed = 0;
+      for (let slot = 1; slot <= 19 && placed < count; slot++) {
+        if (!scenario.equip[slot]) { scenario.equip[slot] = { itemID }; placed++; }
+      }
+      return placed;
+    },
     setItemCountBank(id, count) { scenario.itemCountBank[id] = count; },
     setItemCountReagent(id, count) { scenario.itemCountReagent[id] = count; },
     setItemCountAccount(id, count) { scenario.itemCountAccount[id] = count; },

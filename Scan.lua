@@ -40,10 +40,15 @@ local function BagIDs()
     return ids
 end
 
--- 角色银行：已购银行页（动态枚举）+ 银行包栏；不区分材料区，全部计入「银行」
+-- 角色银行：已购银行页（动态枚举）。
+-- 12.x 的银行结构 = 6 个角色银行页 + 5 个账号银行页，**没有独立的"银行包栏"容器**：
+-- Enum.BagIndex 的 20 个成员里没有 BankBag（11.2.7 起就没有），旧写法 `B.BankBag`
+-- 是从更早版本抄来的死代码，因外层有 type() 判断而一直静默跳过，0.9.7 清除。
+-- 账号银行不在这里扫 —— 它与其他角色共享，由当前角色经 GetItemCount(includeAccountBank)
+-- 计入「银」，避免同一批物品被重复计数。
 local function BankIDs()
     local ids = {}
-    local C_Bank, B = C_Bank, (Enum and Enum.BagIndex) or {}
+    local C_Bank = C_Bank
     if C_Bank and C_Bank.FetchPurchasedBankTabIDs and Enum and Enum.BankType then
         local ok, list = pcall(C_Bank.FetchPurchasedBankTabIDs, Enum.BankType.Character)
         if ok and type(list) == "table" then
@@ -52,7 +57,6 @@ local function BankIDs()
             end
         end
     end
-    if type(B.BankBag) == "number" then ids[#ids + 1] = B.BankBag end
     return ids
 end
 

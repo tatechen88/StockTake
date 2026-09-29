@@ -65,11 +65,48 @@ function SL:Debounce(key, delay, fn)
     end)
 end
 
+-- ── 装备计数（内存，不入存档）───────────────────────────────────────
+-- 为什么需要：C_Item.GetItemCount 的**基准计数包含已装备**件数，而「背」的口径不含已装备，
+-- 必须把这个数减掉。而 12.1 并没有"直接给已装备件数"的 API —— C_Item.GetEquippedCount 在
+-- 12.1.0 / 12.0.7 / 11.2.7 的官方 apidoc 里都不存在，社区 wiki 也从无此页面。
+-- （0.9.4 曾按它写过一版减装备逻辑，因 API 不存在而静默失效，0.9.7 修正。）
+-- 唯一可靠路径：遍历装备槽自己数。装备槽无堆叠语义，命中即 +1。
+SL.equippedCounts = {}
+
+local INV_FIRST_FALLBACK, INV_LAST_FALLBACK = 1, 19   -- FrameXML 常量取不到时的兜底
+
+function SL:RebuildEquipped()
+    local counts = SL.equippedCounts
+    for k in pairs(counts) do counts[k] = nil end
+    if type(GetInventoryItemID) ~= "function" then return end   -- 防御：拿不到就维持 0（等同旧行为）
+    local first = tonumber(_G.INVSLOT_FIRST_EQUIPPED) or INV_FIRST_FALLBACK
+    local last  = tonumber(_G.INVSLOT_LAST_EQUIPPED) or INV_LAST_FALLBACK
+    for slot = first, last do
+        local ok, id = pcall(GetInventoryItemID, "player", slot)
+        if ok and type(id) == "number" then
+            counts[id] = (counts[id] or 0) + 1
+        end
+    end
+end
+
+function SL:GetEquippedCount(itemID)
+    if type(itemID) ~= "number" then return 0 end
+    return SL.equippedCounts[itemID] or 0
+end
+
+-- 换装：重建装备表并通知。事件载荷 (equipmentSlot, hasCurrent) 用不上 ——
+-- 全量重建 19 个槽的代价可忽略，省掉一个增量状态机。
+function SL:PLAYER_EQUIPMENT_CHANGED()
+    SL:RebuildEquipped()
+    SL:Fire("EQUIPMENT_CHANGED")
+end
+
 -- ── 生命周期 ────────────────────────────────────────────────────────
 local frame = CreateFrame("Frame")
 SL.frame = frame
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     local handler = SL[event]
@@ -107,6 +144,7 @@ function SL:PLAYER_ENTERING_WORLD()
         key   = realm .. "-" .. name,
         class = select(2, UnitClass("player")),
     }
+    SL:RebuildEquipped()          -- 装备表要在第一次悬停之前就绪（否则「背」会含已装备）
     -- 登录时只记录背包；银行等打开银行界面时再记录
     if SL.Scan then SL.Scan:Bags() end
     SL:Fire("PLAYER_READY")

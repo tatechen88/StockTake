@@ -5,6 +5,26 @@
 > Chinese [`CHANGELOG.md`](CHANGELOG.md); the Traditional Chinese version is
 > [`CHANGELOG.zhTW.md`](CHANGELOG.zhTW.md).
 
+## 0.9.7 — 2026-09-30 · Equipped items no longer counted as "bags" (a fix that had been dead since 0.9.4)
+
+### Fixed
+- **"bags" no longer counts the gear you are wearing.** 0.9.4 tried to fix this with
+  `C_Item.GetEquippedCount` - but **that API does not exist in 12.1**: it is absent from the official
+  apidoc for 12.1.0, 12.0.7 and 11.2.7 alike, and the community wiki has never had a page for it.
+  The call site was defensive (skip if unavailable), so it **failed silently for three releases** -
+  visible only on equippable items (2 worn plus 5 in bags showed "bags 7"). The count is now derived
+  by **walking the equipment slots** (`GetInventoryItemID`) and rebuilt whenever you change gear
+  (`PLAYER_EQUIPMENT_CHANGED`); tooltips already on screen update immediately.
+- **Removed dead code**: `Enum.BagIndex.BankBag` - that member has not existed since 11.2.7, so the
+  branch referencing it never ran (a type check kept it harmless).
+
+### Note
+- Counting logic and data format are identical to 0.9.6; no migration needed.
+- This release also fixes two fidelity problems in the test harness, which used to provide an API and
+  an enum member that the real client does not have - precisely what let the dead fix above hide
+  behind 202 passing tests for three releases.
+
+---
 ## 0.9.6 — 2026-09-30 · MIT license + documentation formatting fixes
 
 ### Changed

@@ -6,7 +6,7 @@
 ## Notes-zhCN: 在物品提示框显示背包 / 银行 / 其他角色持有的数量，字号可调。
 ## Notes-zhTW: 在物品提示資訊顯示背包 / 銀行 / 其他角色持有的數量，字型大小可調整。
 ## Author: Tate_Chen
-## Version: 0.9.6
+## Version: 0.9.7
 ## SavedVariables: SL2_DB
 ## X-Category: Bags & Inventory
 ## X-Curse-Project-ID: 1714499

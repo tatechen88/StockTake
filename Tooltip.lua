@@ -28,9 +28,10 @@ local function CachePut(itemID, rows)
 end
 
 -- 当前角色的背包 / 银行（银行含战团银行）
--- 0.9.4 修复：GetItemCount 的 1 参基准计数**包含已装备**件数（KeystoneLoot 在产代码
--- 同款结论："GetItemCount counts equipped pieces"），而「背」按口径不含已装备。
--- 处理：减掉装备数；银行差值 (all − carried) 里装备数天然抵消，不受影响。
+-- 口径：GetItemCount 的 1 参基准计数**包含已装备**件数，而「背」不含已装备，故减去装备数；
+-- 银行差值 (all − carried) 里装备数天然抵消，不受影响。
+-- 0.9.7 修正：减数改为读 Core 的装备表（遍历装备槽自数）。0.9.4 曾用 C_Item.GetEquippedCount，
+-- 但 12.1 根本没有这个 API（官方 apidoc 三个版本 + wiki 双源确认），那段修复从未生效过。
 local function CurrentCounts(itemID)
     local getCount = C_Item and C_Item.GetItemCount
     if type(getCount) ~= "function" then return nil end
@@ -38,12 +39,7 @@ local function CurrentCounts(itemID)
     local okBags, carried = pcall(getCount, itemID)
     if not okBags or type(carried) ~= "number" then return nil end
 
-    local equipped = 0
-    local equippedCount = (C_Item and C_Item.GetEquippedCount) or GetEquippedCount
-    if type(equippedCount) == "function" then
-        local okEq, eq = pcall(equippedCount, itemID)
-        if okEq and type(eq) == "number" and eq > 0 then equipped = eq end
-    end
+    local equipped = SL.GetEquippedCount and SL:GetEquippedCount(itemID) or 0
     local bags = carried - equipped
     if bags < 0 then bags = 0 end
 
@@ -499,10 +495,15 @@ local function RefreshShownTooltips()
     end
 end
 
-SL:Subscribe("DATA_CHANGED", function()
+-- 数据 / 装备变化 → 缓存作废 + 重放当前提示框
+local function InvalidateAndRefresh()
     ClearCache()
     SL:Debounce("tooltipRefresh", 0.05, RefreshShownTooltips)
-end)
+end
+
+SL:Subscribe("DATA_CHANGED", InvalidateAndRefresh)
+-- 换装同样要走这条：装备数进了「背」的口径，摘下一枚戒指就得重算
+SL:Subscribe("EQUIPMENT_CHANGED", InvalidateAndRefresh)
 SL:Subscribe("CONFIG_CHANGED", function()
     ClearCache()
     -- 字号回到"跟随游戏"（或任何 <=0 的值）时，把被我们改过字号的行全部还原
