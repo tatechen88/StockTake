@@ -5,6 +5,28 @@
 > Chinese [`CHANGELOG.md`](CHANGELOG.md); the Traditional Chinese version is
 > [`CHANGELOG.zhTW.md`](CHANGELOG.zhTW.md).
 
+## 0.9.6 — 2026-09-30 · MIT license + documentation formatting fixes
+
+### Changed
+- **Licensed under MIT instead of "All Rights Reserved".** You are now free to use, modify and
+  redistribute this addon as long as the copyright notice is kept. Source repository:
+  <https://github.com/tatechen88/StockTake>.
+
+### Fixed
+- **Broken code blocks in the Simplified Chinese and English READMEs.** The code fences in those two
+  files had been written as `///` and inline-code backticks as `/` (so `/st` showed up as `//st/`),
+  left over from a text-transfer accident. Both are now restored line by line from the unaffected
+  Traditional Chinese version, which was correct all along.
+
+### Added
+- **In-game screenshots in the README**: one of the tooltip, one of the options panel (character
+  names mosaicked).
+
+### Note
+- This release **only changes the license and the documentation**. Counting logic and data format are
+  identical to 0.9.5; no migration needed.
+
+---
 ## 0.9.5 — 2026-09-28 · Options panel: language and font-size initialisation (3 fixes)
 
 ### Fixed
