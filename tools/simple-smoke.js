@@ -687,25 +687,44 @@ function renderWith(itemID, opts) {
 
 /* ── 11. 内存瘦身：缓存上限 / 空结果不缓存 / 弃用角色清理 ──────── */
 {
-  // 11a 悬停缓存有上限（FIFO 128）：悬停 140 个不同物品后缓存 ≤ 128
+  // 11a 悬停缓存有上限（FIFO 128）且确实在用。
+  // 用**行为**判据而不是读内部计数器：命中缓存 ⇒ 不再问 API；被淘汰 ⇒ 必须重新问。
+  // （原先靠 Tooltip:CacheSize() 这个纯测试接口，已随调试接口一并移除。）
   const { mock } = load(SCENARIO);
   lifecycle(mock);
   seedAlts(mock);
-  const size = () => mock.evalLua('return StockTake.Tooltip:CacheSize()').value;
+  const apiCalls = () => (mock.calls || []).filter((c) => c.name === 'C_Item.GetItemCount').length;
+
   for (let id = 1; id <= 140; id++) {
     mock.setItemCount(id, 2);
     mock.invokeItemTooltipFlow(mock.gameTooltip, { id }, [{ type: 'ItemName', text: 'I' + id }]);
   }
-  ok(size() <= 128, `11) 缓存上限：悬停 140 个物品后缓存 ${size()} ≤ 128`);
-  ok(size() > 100, `11) 缓存仍然有效（${size()} 条，不是被误清空）`);
+
+  // 刚悬停过的（140）应在缓存里：重复悬停不该再产生 GetItemCount 调用
+  let before = apiCalls();
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 140 }, [{ type: 'ItemName', text: 'I140' }]);
+  eq(apiCalls() - before, 0, '11) 缓存命中：重复悬停同一物品不再问 API');
+
+  // 最早的（1）应已被 FIFO 淘汰：重新悬停必须重新计算
+  before = apiCalls();
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 1 }, [{ type: 'ItemName', text: 'I1' }]);
+  ok(apiCalls() - before > 0, '11) 缓存上限 128：最早悬停的第 1 个已被淘汰、需重新计算');
 }
 {
-  // 11b 谁都没有的物品不缓存
+  // 11b 谁都没有的物品不缓存（否则会长期占着一张空表）。
+  // 行为判据：**刻意不触发任何事件**直接给它加上数量再悬停 ——
+  // 若空结果被缓存了，这一次仍然不会出现数量块。
   const { mock } = load(SCENARIO);
   lifecycle(mock);
   mock.setItemCount(999, 0);
   mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 999 }, [{ type: 'ItemName', text: 'X' }]);
-  eq(mock.evalLua('return StockTake.Tooltip:CacheSize()').value, 0, '11) 空结果不缓存');
+  ok(!/TestChar/.test(readLines(mock, 'GameTooltip').map((l) => l.text).join(' ')),
+     '11) 一件都没有时不显示数量块');
+
+  mock.setItemCount(999, 5);          // 刻意不发事件：缓存不会被清，正好检验"空结果有没有被缓存"
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 999 }, [{ type: 'ItemName', text: 'X' }]);
+  ok(/TestChar/.test(readLines(mock, 'GameTooltip').map((l) => l.text).join(' ')),
+     '11) 空结果未被缓存：数量出现后再次悬停即可见');
 }
 {
   // 11c lastSeen 在扫描时记录

@@ -3,9 +3,6 @@
 -- 其他角色：读 SL2_DB（由 Scan.lua 记录）
 local ADDON_NAME, SL = ...
 
-SL.Tooltip = {}
-local Tooltip = SL.Tooltip
-
 -- 悬停结果缓存：**有上限的 FIFO**（v0.9.2 内存瘦身）。
 -- 此前无上限——一场长会话里每看过一个物品就留一份行数据，只增不减。
 local CACHE_MAX = 128
@@ -522,16 +519,3 @@ SL:Subscribe("CONFIG_CHANGED", function()
     -- 字号/勾选变化后，同样让已经打开的提示框立即更新（例如面板开着改字号）
     SL:Debounce("tooltipRefresh", 0.05, RefreshShownTooltips)
 end)
-
-function Tooltip:ClearCache()
-    ClearCache()
-end
-
--- 当前缓存条数（供测试与诊断）
-function Tooltip:CacheSize()
-    local n = 0
-    for i = 1, #cacheFifo do
-        if cache[cacheFifo[i]] ~= nil then n = n + 1 end
-    end
-    return n
-end
