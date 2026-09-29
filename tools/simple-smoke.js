@@ -881,7 +881,8 @@ function renderWith(itemID, opts) {
   ok(self != null, '12) 当前角色行存在（已装备场景）');
   ok(self && self.indexOf('背 3') !== -1, `12) 「背」= 5−2（装备）= 3（实际：${self}）`);
   ok(self && self.indexOf('银 3') !== -1, `12) 「银」不受装备数影响 = 3（实际：${self}）`);
-  ok(self && self.indexOf(': 6') !== -1, `12) 总数 = 3+3 = 6，不含已装备（实际：${self}）`);
+  ok(self && self.indexOf('装备 2') !== -1, `12) 装备单独成列显示 2（实际：${self}）`);
+  ok(self && self.indexOf(': 8') !== -1, `12) 总数 = 背3+银3+装备2 = 8（实际：${self}）`);
 
   // 12f 换装后已显示的提示框立即更新（PLAYER_EQUIPMENT_CHANGED → 重建装备表 → 缓存失效 → 重放）
   // 先记下换装前的显示值——必须断言这个"变化"本身，否则在装备数恒为 0 的坏状态下本用例会假通过。
@@ -895,6 +896,24 @@ function renderWith(itemID, opts) {
   const after = readLines(mock, 'GameTooltip').map((l) => l.text).join(' ');
   ok(/背 5/.test(after), `12) 卸下装备后「背」变为 5（实际：${after}）`);
   ok(!/背 3/.test(after), '12) 卸装前的旧数字不再残留');
+  ok(!/装备/.test(after), `12) 卸光后「装备」列消失（实际：${after}）`);
+}
+
+{
+  // 12h 只戴着、没有备件：这一行仍须出现。
+  // 这是 0.9.7 修好"减装备数"之后冒出来的回归——装备被减光后 bags+bank=0，
+  // 被"一件都没有就不占位"挡掉，于是悬停自己身上的装备什么都看不到。
+  const sc = Object.assign({}, SCENARIO, { equip: { 11: { itemID: 800 } } });
+  const { mock } = load(sc);
+  lifecycle(mock);
+  mock.setItemCount(800, 1);          // 基准计数 1，就是身上那一件
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 800 }, [{ type: 'ItemName', text: 'I800' }]);
+  const lines = readLines(mock, 'GameTooltip').map((l) => l.text);
+  const self = lines.find((t) => /TestChar/.test(t));
+  ok(self != null, `12) 装备-only 物品仍显示当前角色行（实际：${lines.join(' | ')}）`);
+  ok(self && self.indexOf('背 0') !== -1, `12) 明示「背 0」（实际：${self}）`);
+  ok(self && self.indexOf('装备 1') !== -1, `12) 明示「装备 1」（实际：${self}）`);
+  ok(self && self.indexOf(': 1') !== -1, `12) 总数 1（实际：${self}）`);
 }
 
 {

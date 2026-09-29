@@ -5,7 +5,7 @@
 > Chinese [`CHANGELOG.md`](CHANGELOG.md); the Traditional Chinese version is
 > [`CHANGELOG.zhTW.md`](CHANGELOG.zhTW.md).
 
-## 0.9.7 — 2026-09-30 · Equipped items no longer counted as "bags" (a fix that had been dead since 0.9.4)
+## 0.9.7 — 2026-09-30 · Equipped items: fixed counting, and given their own column
 
 ### Fixed
 - **"bags" no longer counts the gear you are wearing.** 0.9.4 tried to fix this with
@@ -17,6 +17,14 @@
   (`PLAYER_EQUIPMENT_CHANGED`); tooltips already on screen update immediately.
 - **Removed dead code**: `Enum.BagIndex.BankBag` - that member has not existed since 11.2.7, so the
   branch referencing it never ran (a type check kept it harmless).
+
+### Added
+- **Equipped items get their own column.** Once the subtraction above actually worked, an item you
+  only wear (no spare) became "bags 0, bank 0" - which the "show nothing when you own none" rule
+  swallowed, so the **whole block disappeared from the tooltip**: worse than before the fix. Equipped
+  is now its own component: `Name: 8     (bags 3 · bank 3 · equipped 2)`, with the total including it.
+  Wearing your only copy now reads `Name: 1     (bags 0 · equipped 1)` - a plain answer that nothing
+  is spare in your bags.
 
 ### Note
 - Counting logic and data format are identical to 0.9.6; no migration needed.

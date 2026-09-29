@@ -58,6 +58,10 @@ Each character needs to **log in once** to be recorded (bags on login, bank when
 **How is the warband bank counted?**
 Folded into your current character's `bank` number via Blizzard's official `includeAccountBank` parameter — accurate in real time. Other characters only count their own character bank, so the total never double-counts.
 
+**Where does the gear I'm wearing count?**
+Not in "bags" - that counts your bags only. Equipped items get their own "equipped" column, so wearing
+your only copy reads `Name: 1     (bags 0 · equipped 1)`: a plain answer that nothing is spare.
+
 **Where is the data stored? How do I reset it?**
 `WTF\Account\<account>\SavedVariables\StockTake.lua` — item IDs and numbers only, no names or icons, no network. For a clean slate, delete that file while the game is closed.
 

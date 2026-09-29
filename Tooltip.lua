@@ -49,7 +49,9 @@ local function CurrentCounts(itemID)
 
     local bank = all - carried
     if bank < 0 then bank = 0 end
-    return bags, bank
+    -- 装备单独返回：它既不算「背」也不算「银」，但必须**能被看见** ——
+    -- 否则"身上只有这一件"的物品会被算成一件都没有，整块从提示框上消失。
+    return bags, bank, equipped
 end
 
 local function BuildRows(itemID)
@@ -57,11 +59,16 @@ local function BuildRows(itemID)
     local player = SL.player
     if not player then return rows end
 
-    local bags, bank = CurrentCounts(itemID)
-    if bags and (bags + bank) > 0 then          -- 一件都没有时不占位（0 在 Lua 里是真值，必须显式判断）
+    local bags, bank, equipped = CurrentCounts(itemID)
+    equipped = equipped or 0
+    -- 一件都没有时不占位（0 在 Lua 里是真值，必须显式判断）。
+    -- 装备同样算"有"：只戴着、没有备件时这一行也必须出现，
+    -- 否则玩家悬停自己身上的装备会看到"什么都没有"。
+    if bags and (bags + bank + equipped) > 0 then
         rows[#rows + 1] = {
             name = player.name, class = player.class,
-            bags = bags, bank = bank, total = bags + bank, isPlayer = true,
+            bags = bags, bank = bank, equipped = equipped,
+            total = bags + bank + equipped, isPlayer = true,
         }
     end
 
@@ -117,6 +124,10 @@ local function RowDetail(row)
     local detail = L.BAGS .. " " .. Num(row.bags)
     if row.bank > 0 then
         detail = detail .. " · " .. L.BANK .. " " .. Num(row.bank)
+    end
+    -- 装备只在 > 0 时出现（与「银」同一惯例）。其他角色的记录里没有装备数据，自然不会显示。
+    if (row.equipped or 0) > 0 then
+        detail = detail .. " · " .. L.EQUIPPED .. " " .. Num(row.equipped)
     end
     return L.PAREN_LEFT .. detail .. L.PAREN_RIGHT
 end
