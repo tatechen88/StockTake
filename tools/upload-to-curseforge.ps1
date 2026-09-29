@@ -13,6 +13,12 @@
       1. 在 https://authors.curseforge.com 建好项目，拿到**数字项目 ID**（About Project 里）；
       2. 在 CurseForge 账号页生成 API Token，放进环境变量 CF_API_TOKEN（不要写进任何文件）。
 
+    关于 -GameVersions：传的是 CurseForge **自己的整数版本 ID**，既不是 "12.1.0" 这样的
+    字符串，也不是 toc 的 Interface 号——12.1.0 的 ID 是 16519，而它的 Interface 是 120100。
+    权威对照表：GET https://wow.curseforge.com/api/game/versions（带 X-Api-Token），
+    返回项里的 gameVersionTypeID = 517 即 WoW Retail。传字符串会被 400/1002 拒绝，
+    传不存在的 ID 会被 400/1007 拒绝。
+
 .EXAMPLE
     # 先干跑：只打印将要发送的元数据，不真的上传
     pwsh -File upload-to-curseforge.ps1 -ProjectId 1234567 -DryRun
@@ -28,7 +34,16 @@ param(
     [string]$ZipPath = (Get-ChildItem -Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist') -Filter '*.zip' -File |
                         Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName),
     [ValidateSet('release', 'beta', 'alpha')][string]$ReleaseType = 'release',
-    [string[]]$GameVersions = @('12.1.0'),
+    # 注意：CurseForge 的 gameVersions 要的是它**自己的整数版本 ID**——既不是 "12.1.0"
+    # 这样的字符串，也不是 toc 的 Interface 号（两者不同：12.1.0 的 ID 是 16519，
+    # 但 Interface 是 120100）。传字符串 → 400 / errorCode 1002；传不存在的 ID →
+    # 400 / errorCode 1007。权威对照表（带 X-Api-Token 请求）：
+    #   GET https://wow.curseforge.com/api/game/versions
+    # 返回 { id, gameVersionTypeID, name, slug, apiVersion }；gameVersionTypeID
+    # 517 = WoW Retail，apiVersion 才是 Interface 号。下面三项对应 toc 声明的
+    # Interface 120100 / 120007 / 120005：
+    #   12.1.0 → 16519   12.0.7 → 16238   12.0.5 → 15855
+    [int[]]$GameVersions = @(16519, 16238, 15855),
     [string]$DisplayName,
     [string]$Changelog,
     [string]$ChangelogFile,
