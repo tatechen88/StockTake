@@ -59,7 +59,7 @@ function cloneScenario(sc) {
   // 逐 itemID / 逐装备槽的映射同样要各自一份：setItemCount / setEquipped 等 setter
   // 是**直接写入这些对象**的，浅拷贝会让改动泄漏到后续用例
   //（此前只防了容器与银行页，装备与计数表是新增的串扰面）。
-  for (const key of ['equip', 'itemMeta', 'itemCount', 'itemCountBank', 'itemCountReagent', 'itemCountAccount']) {
+  for (const key of ['equip', 'itemMeta', 'itemCount', 'itemCountBank', 'itemCountReagent', 'itemCountAccount', 'tooltipItemLinks']) {
     out[key] = Object.assign({}, sc[key]);
   }
   if (sc.savedVars && typeof sc.savedVars === 'object') out.savedVars = {};   // 每次全新，防跨测试串扰
@@ -932,7 +932,95 @@ function renderWith(itemID, opts) {
   ok(self != null, `12) 装备-only 物品仍显示当前角色行（实际：${lines.join(' | ')}）`);
   ok(self && self.indexOf('背 0') !== -1, `12) 明示「背 0」（实际：${self}）`);
   ok(self && self.indexOf('装备 1') !== -1, `12) 明示「装备 1」（实际：${self}）`);
-  ok(self && self.indexOf(': 1') !== -1, `12) 总数 1（实际：${self}）`);
+  // 数字边界：': 1' 不能靠 indexOf——': 10'~': 19' 也会命中（审计 C 发现的前缀误匹配）
+  ok(self && /: 1(?:\s|（|$)/.test(self), `12) 总数 1（实际：${self}）`);
+  const totalLine = lines.find((t) => /合计/.test(t));
+  ok(totalLine != null && /^合计: 1$/.test(totalLine.trim()), `12) 合计行恰为 1（实际：${totalLine}）`);
+}
+
+{
+  // 12i 防御路径：真机没有 GetInventoryItemID 时，装备数保持 0（= 0.9.6 的旧行为），不崩溃
+  //（审计 C：A7 的两条兜底此前一个用例都没有）
+  const sc = Object.assign({}, SCENARIO, { equip: { 11: { itemID: 900 } } });
+  const { mock } = load(sc);
+  mock.runLuaCode('GetInventoryItemID = nil');
+  lifecycle(mock);
+  mock.setItemCount(900, 1);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 900 }, [{ type: 'ItemName', text: 'I900' }]);
+  const lines = readLines(mock, 'GameTooltip').map((l) => l.text);
+  const self = lines.find((t) => /TestChar/.test(t));
+  ok(self != null, `12) API 缺失兜底：行仍出现、全程不崩（实际：${lines.join(' | ')}）`);
+  ok(self && self.indexOf('背 1') !== -1, `12) API 缺失兜底：不减装备、按旧口径显示「背 1」（实际：${self}）`);
+  ok(self && self.indexOf('装备') === -1, `12) API 缺失兜底：不显示装备列（实际：${self}）`);
+}
+
+{
+  // 12j 防御路径：INVSLOT 常量缺失时回落 1..19 —— 物品只放 19 号槽也能被数到
+  const sc = Object.assign({}, SCENARIO, { equip: { 19: { itemID: 901 } } });
+  const { mock } = load(sc);
+  mock.runLuaCode('INVSLOT_FIRST_EQUIPPED = nil INVSLOT_LAST_EQUIPPED = nil');
+  lifecycle(mock);
+  mock.setItemCount(901, 1);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 901 }, [{ type: 'ItemName', text: 'I901' }]);
+  const self = readLines(mock, 'GameTooltip').map((l) => l.text).find((t) => /TestChar/.test(t));
+  ok(self && self.indexOf('装备 1') !== -1 && self.indexOf('背 0') !== -1,
+     `12) 常量缺失回落 1..19：19 号槽被扫到（实际：${self}）`);
+}
+
+{
+  // 12k 防御路径：单个装备槽查询抛错时继续扫描其余槽（RebuildEquipped 每槽独立 pcall）
+  const sc = Object.assign({}, SCENARIO, { equip: { 5: { itemID: 902 }, 6: { itemID: 903 } } });
+  const { mock } = load(sc);
+  mock.runLuaCode(
+    'local orig = GetInventoryItemID\n' +
+    'GetInventoryItemID = function(u, s) if s == 5 then error("boom") end return orig(u, s) end'
+  );
+  lifecycle(mock);
+  mock.setItemCount(903, 1);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 903 }, [{ type: 'ItemName', text: 'I903' }]);
+  const self = readLines(mock, 'GameTooltip').map((l) => l.text).find((t) => /TestChar/.test(t));
+  ok(self && self.indexOf('装备 1') !== -1,
+     `12) 5 号槽抛错被吞、6 号槽仍计数（实际：${self}）`);
+}
+
+{
+  // 12l 装备与多角色的组合（审计 C：此前装备场景全都没带其他角色）
+  // 当前角色装备-only=1（总数最低也要置顶）；AltA=9、AltB=3 按总数降序；合计=13；装备列只在当前角色行
+  const sc = Object.assign({}, SCENARIO, { equip: { 11: { itemID: 910 } } });
+  const { mock } = load(sc);
+  lifecycle(mock);
+  mock.runLuaCode(
+    'SL2_DB.chars["TestRealm-AltA"] = { name = "AltA", class = "MAGE", bags = { [910] = 9 }, bank = {} }\n' +
+    'SL2_DB.chars["TestRealm-AltB"] = { name = "AltB", class = "ROGUE", bags = { [910] = 3 }, bank = {} }'
+  );
+  mock.setItemCount(910, 1);          // 当前角色只有身上那一件
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 910 }, [{ type: 'ItemName', text: 'I910' }]);
+  const lines = readLines(mock, 'GameTooltip').map((l) => l.text);
+  const idxSelf = lines.findIndex((t) => /TestChar/.test(t));
+  const idxA = lines.findIndex((t) => /AltA/.test(t));
+  const idxB = lines.findIndex((t) => /AltB/.test(t));
+  ok(idxSelf !== -1 && idxA !== -1 && idxB !== -1, `12) 三行都在（实际：${lines.join(' | ')}）`);
+  ok(idxSelf >= 0 && idxA > idxSelf && idxB > idxA, `12) 当前角色置顶，AltA(9) 在 AltB(3) 前`);
+  ok(lines[idxSelf] && lines[idxSelf].indexOf('装备 1') !== -1, `12) 装备列在当前角色行（实际：${lines[idxSelf]}）`);
+  ok(lines[idxA] && lines[idxA].indexOf('装备') === -1, `12) 他人行没有装备列（实际：${lines[idxA]}）`);
+  const totalLine = lines.find((t) => /合计/.test(t));
+  ok(totalLine != null && /^合计: 13$/.test(totalLine.trim()), `12) 合计 = 1+9+3 = 13（实际：${totalLine}）`);
+}
+
+{
+  // 12m 数量归零后重放提示框：红色下划线要被撤掉（审计 A：早退分支原本跳过下划线清理）
+  const { mock } = load(SCENARIO);
+  lifecycle(mock);
+  mock.setItemCount(100, 2);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 100 }, [{ type: 'ItemName', text: 'I100' }]);
+  const underline = () => mock.evalLua('return GameTooltip.__slUnderline and GameTooltip.__slUnderline:IsShown()').value;
+  eq(underline(), true, '12) 悬停有数量时红色下划线显示');
+
+  mock.setItemCount(100, 0);          // 悬停中归零（谁都没有了）
+  mock.fireEvent('BAG_UPDATE_DELAYED');
+  mock.advanceTime(0.3);              // bags 扫描（0.2 去抖）→ DATA_CHANGED
+  mock.advanceTime(0.1);              // 刷新去抖（0.05）→ SetHyperlink 重放
+  eq(underline(), false, '12) 归零重放后红色下划线隐藏');
 }
 
 {

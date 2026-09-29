@@ -17,6 +17,8 @@
   (`PLAYER_EQUIPMENT_CHANGED`); tooltips already on screen update immediately.
 - **Removed dead code**: `Enum.BagIndex.BankBag` - that member has not existed since 11.2.7, so the
   branch referencing it never ran (a type check kept it harmless).
+- **The red underline no longer lingers** when a replayed tooltip turns out empty: that early-return
+  branch used to skip the underline cleanup (found by a three-way adversarial audit; narrow trigger).
 
 ### Added
 - **Equipped items get their own column.** Once the subtraction above actually worked, an item you
@@ -27,7 +29,7 @@
   is spare in your bags.
 
 ### Note
-- Counting logic and data format are identical to 0.9.6; no migration needed.
+- Saved data format is identical to 0.9.6; no migration needed (see above for the counting changes).
 - This release also fixes two fidelity problems in the test harness, which used to provide an API and
   an enum member that the real client does not have - precisely what let the dead fix above hide
   behind 202 passing tests for three releases.

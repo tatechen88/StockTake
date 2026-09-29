@@ -37,6 +37,10 @@ local function CurrentCounts(itemID)
     if not okBags or type(carried) ~= "number" then return nil end
 
     local equipped = SL.GetEquippedCount and SL:GetEquippedCount(itemID) or 0
+    -- 负值只可能来自「装备表数到的件数超过了基准计数」——即两者的口径不一致
+    --（例如 GetItemCount 不统计某类槽位而装备表统计了，见审计 E2 的衬衫/战袍疑点）。
+    -- 夹到 0 防止显示负数；这也是口径漂移的**唯一可观测信号**，
+    -- 排查"背数偏小"时先看这里有没有被触发（审计 A 的提示，故留注释不加调试输出）。
     local bags = carried - equipped
     if bags < 0 then bags = 0 end
 
@@ -401,7 +405,13 @@ end
 -- 插入整块：加行 → 应用字号 → 固定像素列对齐括号
 local function InsertBlock(tooltip, itemID)
     local underlineLine, lineIndexes, rows = AddCountBlock(tooltip, itemID)
-    if not lineIndexes then return end           -- 谁都没有 → 什么都不加
+    if not lineIndexes then
+        -- 谁都没有 → 什么都不加，但要撤掉上一轮渲染留下的红色下划线。
+        -- 重放路径（RefreshShownTooltips → SetHyperlink）不走 OnShow 的清理——
+        -- 那只对非物品提示框生效；物品框的下划线只能在这里撤（审计 A 发现）。
+        HideUnderline(tooltip)
+        return
+    end
     FinalizeBlock(tooltip, underlineLine)        -- 先定字号，列位置按最终字体测量
     AnchorDetailColumn(tooltip, rows, lineIndexes)
 end

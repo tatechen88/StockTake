@@ -6,7 +6,7 @@
 
 After all these years, your bank isn't "one character's bank" — it's **one account's bank**. Flasks on the druid, ore in the mage's bags, and a pile of gems sitting in the warband bank. Wanting to know "how many of these do I actually have?" used to mean character-switching and bag-digging, or installing something the size of BagSync.
 
-This addon does exactly one thing: **hover over an item, and it tells you who's holding how many, account-wide**. Install and go — no setup wizard, no libraries, 5 files and ~30 KB.
+This addon does exactly one thing: **hover over an item, and it tells you who's holding how many, account-wide**. Install and go — no setup wizard, no libraries, just 5 files.
 
 ## What it looks like
 
@@ -61,6 +61,8 @@ Folded into your current character's `bank` number via Blizzard's official `incl
 **Where does the gear I'm wearing count?**
 Not in "bags" - that counts your bags only. Equipped items get their own "equipped" column, so wearing
 your only copy reads `Name: 1     (bags 0 · equipped 1)`: a plain answer that nothing is spare.
+The real-time "equipped" column applies to your **current character only**; other characters are stored
+as bags + bank snapshots, so gear they are wearing is not in their rows or the total.
 
 **Where is the data stored? How do I reset it?**
 `WTF\Account\<account>\SavedVariables\StockTake.lua` — item IDs and numbers only, no names or icons, no network. For a clean slate, delete that file while the game is closed.

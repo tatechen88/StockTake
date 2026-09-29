@@ -134,7 +134,13 @@ function SL:ADDON_LOADED(name)
 end
 
 function SL:PLAYER_ENTERING_WORLD()
-    if SL.player then return end
+    if SL.player then
+        -- 防御（审计 A）：若首次进入世界时装备数据尚未就绪，装备表会是空的，而
+        -- PLAYER_EQUIPMENT_CHANGED 不会为此补发。之后每次进入世界（换图/进本都会再触发）
+        -- 只要发现表还是空的就重建一次；代价是 19 次 O(1) 查询，可忽略。
+        if not next(SL.equippedCounts) then SL:RebuildEquipped() end
+        return
+    end
     local name, realm = UnitFullName("player")
     if not name then return end
     realm = (realm or ""):gsub("%s+", "")
