@@ -1,0 +1,19 @@
+{
+  "name": "stocktake-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StockTake 的校验与发布工具链：Lua 语法 / 弃用 API 审计 / 无头冒烟测试 / 简繁混用检查 / 打包与上传",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "syntax": "node lua-check.js ..",
+    "audit": "node api-audit.js ..",
+    "smoke": "node simple-smoke.js",
+    "zhtw": "node check-zhtw.js ../Locales.lua ../README.zhTW.md ../CHANGELOG.zhTW.md",
+    "check": "npm run syntax && npm run audit && npm run smoke && npm run zhtw"
+  },
+  "dependencies": {
+    "fengari": "^0.1.5",
+    "luaparse": "^0.3.1"
+  }
+}

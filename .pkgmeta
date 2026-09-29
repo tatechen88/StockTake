@@ -1,0 +1,24 @@
+# BigWigs packager configuration for StockTake.
+# Docs: https://github.com/BigWigsMods/packager
+#
+# This mirrors what tools/build-release.ps1 already ships in StockTake-<version>.zip:
+# 14 runtime files inside StockTake/ — 5 Lua + .toc + Media/StockTake-Icon.tga
+# + LICENSE.txt + README{,.en,.zhTW}.md + CHANGELOG{,.en,.zhTW}.md
+# Everything listed under "ignore" is development-only and must stay out of any package.
+
+package-as: StockTake
+
+# No embedded libraries in this addon, so no "-nolib" variant is needed.
+enable-nolib-creation: no
+
+ignore:
+  - .gitignore
+  - .gitattributes
+  - .github
+  - .pkgmeta
+  - .scratch
+  - AGENTS.md
+  - docs
+  - tools
+  - node_modules
+  - dist

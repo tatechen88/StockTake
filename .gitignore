@@ -1,0 +1,18 @@
+# 打包产物
+dist/
+*.zip
+*.rar
+*.7z
+
+# 本地校验工具链（先跑 npm --prefix tools install）
+tools/node_modules/
+
+# 编辑器 / 系统垃圾
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# 一次性 / 本机专用脚本与真机排查产物：保留占位文件，忽略产物
+.scratch/*
+!.scratch/.gitkeep

@@ -1,0 +1,21 @@
+## Interface: 120100, 120007, 120005
+## Title: |cffe6b84cStockTake|r
+## Title-zhCN: |cffe6b84c数量盘点|r
+## Title-zhTW: |cffe6b84c數量盤點|r
+## Notes: Shows how many of an item you have in your bags, your bank and on your alts, right on the item tooltip. Font size adjustable.
+## Notes-zhCN: 在物品提示框显示背包 / 银行 / 其他角色持有的数量，字号可调。
+## Notes-zhTW: 在物品提示資訊顯示背包 / 銀行 / 其他角色持有的數量，字型大小可調整。
+## Author: Tate_Chen
+## Version: 0.9.5
+## SavedVariables: SL2_DB
+## X-Category: Bags & Inventory
+## X-Curse-Project-ID: 1714499
+## X-Website: https://www.curseforge.com/wow/addons/stocktake
+## IconTexture: Interface\AddOns\StockTake\Media\StockTake-Icon.tga
+
+# 加载顺序即依赖顺序：Locales → Core → Scan → Tooltip → Options
+Locales.lua
+Core.lua
+Scan.lua
+Tooltip.lua
+Options.lua
