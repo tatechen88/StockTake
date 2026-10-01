@@ -6,7 +6,7 @@
 
 After all these years, your bank isn't "one character's bank" — it's **one account's bank**. Flasks on the druid, ore in the mage's bags, and a pile of gems sitting in the warband bank. Wanting to know "how many of these do I actually have?" used to mean character-switching and bag-digging, or installing something the size of BagSync.
 
-This addon does exactly one thing: **hover over an item, and it tells you who's holding how many, account-wide**. Install and go — no setup wizard, no libraries, just 5 files.
+I made this addon do exactly one thing: **hover over an item, and it tells you who's holding how many, account-wide**. Install and go — no setup wizard, no libraries, just 5 files.
 
 ## What it looks like
 
@@ -65,7 +65,7 @@ The real-time "equipped" column applies to your **current character only**; othe
 as bags + bank snapshots, so gear they are wearing is not in their rows or the total.
 
 **Where is the data stored? How do I reset it?**
-`WTF\Account\<account>\SavedVariables\StockTake.lua` — item IDs and numbers only, no names or icons, no network. For a clean slate, delete that file while the game is closed.
+`WTF\Account\<account>\SavedVariables\StockTake.lua` — item IDs and numbers only, no names or icons. For a clean slate, delete that file while the game is closed.
 
 **Will it fight my UI suite?**
 By default it only **adds its own lines** to the tooltip — no scaling, no touching other addons' lines. The one exception is the font-size slider — it's global (as requested); if you run a skin addon that also restyles tooltip fonts, the two may overwrite each other. Leave the slider at "Follow game" and everyone gets along.

@@ -1,4 +1,4 @@
-**StockTake** answers one question the moment you hover an item: *how many of these do I actually own?*
+I wrote **StockTake** to answer one question the moment you hover an item: *how many of these do I actually own?*
 
 Bags, bank (warband bank included), and every character on your account — right on the tooltip, in a clean block after the game's own description. **The screenshot in the project gallery shows exactly what it looks like.**
 
@@ -27,7 +27,7 @@ Extra slash commands: `/st en`, `/st zh`, `/st tw` (language), `/st auto` (follo
 ## Details
 
 - **Account-wide, zero setup.** Each character is recorded when you log in (bags) and when you open your bank.
-- **No libraries, no network, no popups.** 5 Lua files, about 47 KB zipped.
+- **No libraries, no popups.** 5 Lua files, about 47 KB zipped.
 - **What is stored:** item IDs and counts only — `WTF\Account\...\SavedVariables\StockTake.lua`. Delete that file with the game closed for a clean slate.
 - **Coexists with everything.** By default it only adds its own lines to the tooltip; no scaling, no touching other addons' lines.
 - **Three languages built in:** English, Simplified Chinese and Traditional Chinese, switched live with `/st en`, `/st zh`, `/st tw`.
@@ -44,7 +44,7 @@ My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** -
 
 # 数量盘点 StockTake
 
-**悬停任意物品，立刻告诉你账号里一共有多少。** 背包、银行（含战团银行）、以及每个角色的持有量，直接显示在物品提示框上。**实际效果见项目图库里的截图。**
+我写这个插件只为一件事：悬停任意物品，立刻告诉你账号里一共有多少。**背包、银行（含战团银行）、以及每个角色的持有量，直接显示在物品提示框上。**实际效果见项目图库里的截图。**
 
 ## 它做什么
 
@@ -71,7 +71,7 @@ My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** -
 ## 细节
 
 - **全账号、免配置。** 每个角色登录时记录背包，打开银行时记录银行。
-- **不依赖任何库、不联网。** 5 个 Lua 文件，压缩后约 47 KB。
+- **不依赖任何库。** 5 个 Lua 文件，压缩后约 47 KB。
 - **只记录物品 ID 与数量**，位置在 `WTF\Account\...\SavedVariables\StockTake.lua`；想彻底重来，关掉游戏删掉该文件即可。
 - **不干扰其他插件**：默认只在提示框里增加自己的行，不缩放、不改动别人的行。
 - **内置三种语言**：简体中文、繁体中文、英文，`/st zh`、`/st tw`、`/st en` 即时切换。
@@ -87,7 +87,7 @@ My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** -
 
 # 數量盤點 StockTake
 
-**滑鼠移到任何物品上，立刻告訴你整個帳號有多少。** 背包、銀行（含戰隊銀行）、以及每個角色的持有量，直接顯示在物品提示資訊上。**實際效果見專案圖庫裡的截圖。**
+我寫這個插件只為一件事：滑鼠移到任何物品上，立刻告訴你整個帳號有多少。**背包、銀行（含戰隊銀行）、以及每個角色的持有量，直接顯示在物品提示資訊上。**實際效果見專案圖庫裡的截圖。**
 
 ## 它做什麼
 
@@ -114,7 +114,7 @@ My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** -
 ## 細節
 
 - **全帳號、免設定。** 每個角色登入時記錄背包，開啟銀行時記錄銀行。
-- **不依賴任何函式庫、不連網。** 5 個 Lua 檔案，壓縮後約 47 KB。
+- **不依賴任何函式庫。** 5 個 Lua 檔案，壓縮後約 47 KB。
 - **只記錄物品 ID 與數量**，位置在 `WTF\Account\...\SavedVariables\StockTake.lua`；想徹底重來，關掉遊戲刪掉該檔案即可。
 - **不干擾其他插件**：預設只在提示資訊中增加自己的列，不縮放、不改動別人的列。
 - **內建三種語言**：簡體中文、繁體中文、英文，`/st zh`、`/st tw`、`/st en` 即時切換。
