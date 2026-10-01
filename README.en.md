@@ -81,6 +81,14 @@ Three languages are built in: `/st zh` Simplified Chinese, `/st tw` Traditional 
 Drop the `StockTake` folder into `World of Warcraft\_retail_\Interface\AddOns\`, restart the client or `/reload`. That's all.
 (The addon shows up in your addon list as **StockTake**; the folder name is just an internal identifier.)
 
+## My other addon
+
+**CraftPro** — record a crafting recipe with one click and it becomes a checklist: what that recipe needs, how many you have (bags, bank, reagent bank, warband bank) and what is still missing; a click on a material row searches it at the auction house.
+
+StockTake tells you how many you own, CraftPro tells you what a recipe still needs - they go well together.
+
+<https://www.curseforge.com/wow/addons/craftpro>
+
 ---
 
 *If all you want is to quietly check a number, it'll be a handy tool.*

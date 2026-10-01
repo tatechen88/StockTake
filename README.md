@@ -81,6 +81,14 @@
 把 `StockTake` 文件夹丢进 `World of Warcraft\_retail_\Interface\AddOns\`，重启客户端或 `/reload`。没有别的了。
 （插件列表里显示的名字是**数量盘点**；文件夹名只是内部标识，不影响使用。）
 
+## 我的另一个插件
+
+**CraftPro（材料记录）** —— 打开配方点一下按钮，就得到一张材料清单：这张配方要什么、你手上有多少（背包、银行、材料银行、战团银行）、还缺多少；点一下材料行直接到拍卖行搜索。
+
+StockTake 告诉你有多少，CraftPro 告诉你要缺什么，两个搭着用正合适。
+
+<https://www.curseforge.com/wow/addons/craftpro>
+
 ---
 
 *如果你也只想安安静静看个数量，它会是个称手的工具。*
