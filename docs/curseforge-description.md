@@ -38,8 +38,6 @@ Drop the `StockTake` folder into `World of Warcraft\_retail_\Interface\AddOns\` 
 
 (The addon is listed in-game as **StockTake**.)
 
-Requires World of Warcraft retail (Midnight).
-
 My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** - record a crafting recipe with one click and it becomes a checklist: what that recipe needs, how many you have (bags, bank, reagent bank, warband bank) and what is still missing, and a click on a material row searches it at the auction house. StockTake tells you how many you own; CraftPro tells you what a recipe still needs.
 
 ---
@@ -83,8 +81,6 @@ My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** -
 把 `StockTake` 文件夹放进 `World of Warcraft\_retail_\Interface\AddOns\`，然后 `/reload`。
 （游戏内插件列表显示为**数量盘点**。）
 
-需要《魔兽世界》正式服（Midnight）。
-
 我的另一个插件：**[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** —— 打开配方点一下按钮，就得到一张材料清单：这张配方要什么、你手上有多少（背包、银行、材料银行、战团银行）、还缺多少；点一下材料行直接到拍卖行搜索。StockTake 告诉你手上有多少，CraftPro 告诉你配方还缺什么。
 
 ---
@@ -127,7 +123,5 @@ My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** -
 
 把 `StockTake` 資料夾放進 `World of Warcraft\_retail_\Interface\AddOns\`，然後 `/reload`。
 （插件列表裡顯示為**數量盤點**。）
-
-需要《魔獸世界》正式伺服器（Midnight）。
 
 我的另一個插件：**[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** —— 打開配方按一下按鈕，就得到一張材料清單：這張配方要什麼、你手上有多少（背包、銀行、材料銀行、戰隊銀行）、還缺多少；點一下材料列直接到拍賣場搜尋。StockTake 告訴你手上有多少，CraftPro 告訴你配方還缺什麼。
