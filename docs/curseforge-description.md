@@ -1,3 +1,13 @@
+## Summary（General → Summary；CF 表单只收英文 ✓）
+
+> Hover any item to see how many you own account-wide - bags, bank and every character - right on the tooltip.
+
+简体中文（参考，不贴）
+
+> 鼠标移到任何物品上，提示框直接显示全账号持有量：背包、银行与所有角色。
+
+---
+
 - Counts come from bags, bank (warband bank included) and every character on your account.
 - One row per character, your current character first; total on the last row.
 - Character names are class-coloured; the parentheses line up in one column.
