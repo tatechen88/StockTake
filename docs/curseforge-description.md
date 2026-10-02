@@ -1,127 +1,42 @@
-I wrote **StockTake** to answer one question the moment you hover an item: *how many of these do I actually own?*
+- Counts come from bags, bank (warband bank included) and every character on your account.
+- One row per character, your current character first; total on the last row.
+- Character names are class-coloured; the parentheses line up in one column.
+- Auction house, chat links and the bank all work the same way.
+- Options: show/hide the total row, tooltip font size (default "follow game"), and which alts to show.
+- Slash commands: /st en, /st zh, /st tw, /st auto, /st clean [days].
+- Each character is recorded on login (bags) and when you open the bank.
+- 5 Lua files, no libraries.
 
-Bags, bank (warband bank included), and every character on your account — right on the tooltip, in a clean block after the game's own description. **The screenshot in the project gallery shows exactly what it looks like.**
-
-## What it does
-
-Hover any item — bags, bank, auction house, chat links — and the counts appear on the tooltip, right below the game's own description: one row per character, then the total.
-
-- Your current character is always the first row, with a red line under the name so you can find yourself at a glance.
-- Character names are class-colored.
-- The parentheses line up in a perfect column — no drift at 3, 12 or 170.
-- `bank` already includes the **warband bank** — nothing double-counted, no mental math.
-- The block sits after the game's own description and before other addons' lines (Auctionator's sell price and friends).
-
-## Options
-
-**ESC -> Options -> AddOns -> StockTake**, or just `/st`:
-
-| Option | What it does |
-|---|---|
-| Show total line | Show or hide the `Total` row |
-| Tooltip font size | Resizes the whole tooltip text; default "Follow game" changes nothing |
-| Which characters to show | The one control for other characters: uncheck alts you no longer care about (uncheck everything to see only yourself); your current character always stays |
-
-Extra slash commands: `/st en`, `/st zh`, `/st tw` (language), `/st auto` (follow the client), `/st clean [days]` (drop records of characters idle for N days, 30 by default).
-
-## Details
-
-- **Account-wide, zero setup.** Each character is recorded when you log in (bags) and when you open your bank.
-- **No libraries, no popups.** 5 Lua files, about 47 KB zipped.
-- **What is stored:** item IDs and counts only — `WTF\Account\...\SavedVariables\StockTake.lua`. Delete that file with the game closed for a clean slate.
-- **Coexists with everything.** By default it only adds its own lines to the tooltip; no scaling, no touching other addons' lines.
-- **Three languages built in:** English, Simplified Chinese and Traditional Chinese, switched live with `/st en`, `/st zh`, `/st tw`.
-
-## Install
-
-Drop the `StockTake` folder into `World of Warcraft\_retail_\Interface\AddOns\` and `/reload`.
-
-(The addon is listed in-game as **StockTake**.)
-
-My other addon: **[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** - record a crafting recipe with one click and it becomes a checklist: what that recipe needs, how many you have (bags, bank, reagent bank, warband bank) and what is still missing, and a click on a material row searches it at the auction house. StockTake tells you how many you own; CraftPro tells you what a recipe still needs.
+My other addons
+- [CraftPro](https://www.curseforge.com/wow/addons/craftpro) - record a crafting recipe with one click and see what it needs, what you have and what is still missing.
+- [AutoSpellQueue](https://www.curseforge.com/wow/addons/autospellqueue) - tunes the spell queue window per spec and folds in your latency; no fixed number, no manual tuning.
 
 ---
 
-# 数量盘点 StockTake
+- 数量来自背包、银行（含战团银行）以及账号下所有角色。
+- 每个角色一行，当前角色在第一行；最后一行是总计。
+- 角色名按职业着色；括号里的明细对齐成一列。
+- 拍卖行、聊天链接、银行里的物品都一样有效。
+- 选项：显示/隐藏合计行、提示框字号（默认跟随游戏）、显示哪些角色。
+- 命令：/st en、/st zh、/st tw、/st auto、/st clean [天数]。
+- 每个角色在登录时记录背包，打开银行时记录银行。
+- 5 个 Lua 文件，不依赖任何库。
 
-我写这个插件只为一件事：悬停任意物品，立刻告诉你账号里一共有多少。**背包、银行（含战团银行）、以及每个角色的持有量，直接显示在物品提示框上。**实际效果见项目图库里的截图。**
-
-## 它做什么
-
-悬停任何物品——背包、银行、拍卖行、聊天里的物品链接——数量会出现在提示框里，就在游戏自带说明的下方：每个角色一行，最后一行是合计。
-
-- **当前角色永远在第一行**，名字下面有一条红线，一眼就能找到自己；
-- 角色名按职业着色，和团队框架一个习惯；
-- 括号里的背包/银行明细**对齐成整齐的一列**，3 位、12 位、170 位都不会漂；
-- **`bank` 已经包含战团银行**——不重复计数，也不用自己心算；
-- 数量块位于游戏自带说明之后、其他插件行（比如 Auctionator 的售价）之前，不用滚到提示框底部去找。
-
-## 选项
-
-**ESC → 选项 → 插件 → 数量盘点**，或者直接输入 `/st`：
-
-| 选项 | 作用 |
-|---|---|
-| 显示总计行 | 控制那行 `Total: 42` |
-| 提示框字号 | 调整整个提示框文字大小；默认"跟随游戏"等于不动它 |
-| 显示哪些角色 | 控制"其他角色"的唯一开关：不想看的小号取消勾选即可，全部取消＝只看自己；当前角色永远保留 |
-
-更多命令：`/st en`、`/st zh`、`/st tw` 切换语言，`/st auto` 跟随客户端；`/st clean [天数]` 清理超过 N 天没登录的角色记录（默认 30 天）。
-
-## 细节
-
-- **全账号、免配置。** 每个角色登录时记录背包，打开银行时记录银行。
-- **不依赖任何库。** 5 个 Lua 文件，压缩后约 47 KB。
-- **只记录物品 ID 与数量**，位置在 `WTF\Account\...\SavedVariables\StockTake.lua`；想彻底重来，关掉游戏删掉该文件即可。
-- **不干扰其他插件**：默认只在提示框里增加自己的行，不缩放、不改动别人的行。
-- **内置三种语言**：简体中文、繁体中文、英文，`/st zh`、`/st tw`、`/st en` 即时切换。
-
-## 安装
-
-把 `StockTake` 文件夹放进 `World of Warcraft\_retail_\Interface\AddOns\`，然后 `/reload`。
-（游戏内插件列表显示为**数量盘点**。）
-
-我的另一个插件：**[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** —— 打开配方点一下按钮，就得到一张材料清单：这张配方要什么、你手上有多少（背包、银行、材料银行、战团银行）、还缺多少；点一下材料行直接到拍卖行搜索。StockTake 告诉你手上有多少，CraftPro 告诉你配方还缺什么。
+我的其他插件
+- [CraftPro](https://www.curseforge.com/wow/addons/craftpro) —— 打开配方点一下按钮，就得到一张材料清单：要什么、有多少、还缺多少。
+- [AutoSpellQueue](https://www.curseforge.com/wow/addons/autospellqueue) —— 按专精自动调整施法容限，叠上你的延迟；不是固定数字，也不用你手动调。
 
 ---
 
-# 數量盤點 StockTake
+- 數量來自背包、銀行（含戰隊銀行）以及帳號下所有角色。
+- 每個角色一列，目前角色在第一列；最後一列是總計。
+- 角色名稱按職業著色；括號裡的明細對齊成一欄。
+- 拍賣場、聊天連結、銀行裡的物品都一樣有效。
+- 設定：顯示/隱藏合計列、提示資訊字型大小（預設跟隨遊戲）、顯示哪些角色。
+- 指令：/st en、/st zh、/st tw、/st auto、/st clean [天數]。
+- 每個角色在登入時記錄背包，開啟銀行時記錄銀行。
+- 5 個 Lua 檔案，不依賴任何函式庫。
 
-我寫這個插件只為一件事：滑鼠移到任何物品上，立刻告訴你整個帳號有多少。**背包、銀行（含戰隊銀行）、以及每個角色的持有量，直接顯示在物品提示資訊上。**實際效果見專案圖庫裡的截圖。**
-
-## 它做什麼
-
-滑鼠移到任何物品上——背包、銀行、拍賣場、聊天裡的物品連結——數量會出現在提示資訊中，就在遊戲原生說明的下方：每個角色一列，最後一列是合計。
-
-- **目前角色永遠在第一列**，名字下面有一條紅線，一眼就能找到自己；
-- 角色名稱按**職業顏色**顯示，跟團隊框架一個習慣；
-- 括號裡的背包／銀行明細**對齊成整齊的一欄**，3 位、12 位、170 位都不會歪；
-- **`bank` 已經包含戰隊銀行**——不重複計算，也不用自己心算；
-- 數量區塊位於遊戲原生說明之後、其他插件列（例如 Auctionator 的售價）之前，不用把提示資訊拉到最底才找到。
-
-## 設定
-
-**ESC → 選項 → 插件 → 數量盤點**，或者直接輸入 `/st`：
-
-| 設定 | 作用 |
-|---|---|
-| 顯示合計列 | 控制那一列 `Total: 42` |
-| 提示資訊字型大小 | 調整整份提示資訊的文字大小；預設「跟隨遊戲」等於不動它 |
-| 顯示哪些角色 | 控制「其他角色」的唯一開關：不想看的分身取消勾選即可，全部取消＝只看自己；目前角色永遠保留 |
-
-更多指令：`/st en`、`/st zh`、`/st tw` 切換語言，`/st auto` 跟隨客戶端；`/st clean [天數]` 清理超過 N 天未登入的角色紀錄（預設 30 天）。
-
-## 細節
-
-- **全帳號、免設定。** 每個角色登入時記錄背包，開啟銀行時記錄銀行。
-- **不依賴任何函式庫。** 5 個 Lua 檔案，壓縮後約 47 KB。
-- **只記錄物品 ID 與數量**，位置在 `WTF\Account\...\SavedVariables\StockTake.lua`；想徹底重來，關掉遊戲刪掉該檔案即可。
-- **不干擾其他插件**：預設只在提示資訊中增加自己的列，不縮放、不改動別人的列。
-- **內建三種語言**：簡體中文、繁體中文、英文，`/st zh`、`/st tw`、`/st en` 即時切換。
-
-## 安裝
-
-把 `StockTake` 資料夾放進 `World of Warcraft\_retail_\Interface\AddOns\`，然後 `/reload`。
-（插件列表裡顯示為**數量盤點**。）
-
-我的另一個插件：**[CraftPro](https://www.curseforge.com/wow/addons/craftpro)** —— 打開配方按一下按鈕，就得到一張材料清單：這張配方要什麼、你手上有多少（背包、銀行、材料銀行、戰隊銀行）、還缺多少；點一下材料列直接到拍賣場搜尋。StockTake 告訴你手上有多少，CraftPro 告訴你配方還缺什麼。
+我的其他插件
+- [CraftPro](https://www.curseforge.com/wow/addons/craftpro) —— 打開配方按一下按鈕，就得到一張材料清單：要什麼、有多少、還缺多少。
+- [AutoSpellQueue](https://www.curseforge.com/wow/addons/autospellqueue) —— 依專精自動調整施法容限，疊上你的延遲；不是固定數字，也不用你手動調。
