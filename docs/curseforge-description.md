@@ -25,18 +25,3 @@ My other addons
 我的其他插件
 - [CraftPro](https://www.curseforge.com/wow/addons/craftpro) —— 打开配方点一下按钮，就得到一张材料清单：要什么、有多少、还缺多少。
 - [AutoSpellQueue](https://www.curseforge.com/wow/addons/autospellqueue) —— 按专精自动调整施法容限，叠上你的延迟；不是固定数字，也不用你手动调。
-
----
-
-- 數量來自背包、銀行（含戰隊銀行）以及帳號下所有角色。
-- 每個角色一列，目前角色在第一列；最後一列是總計。
-- 角色名稱按職業著色；括號裡的明細對齊成一欄。
-- 拍賣場、聊天連結、銀行裡的物品都一樣有效。
-- 設定：顯示/隱藏合計列、提示資訊字型大小（預設跟隨遊戲）、顯示哪些角色。
-- 指令：/st en、/st zh、/st tw、/st auto、/st clean [天數]。
-- 每個角色在登入時記錄背包，開啟銀行時記錄銀行。
-- 5 個 Lua 檔案，不依賴任何函式庫。
-
-我的其他插件
-- [CraftPro](https://www.curseforge.com/wow/addons/craftpro) —— 打開配方按一下按鈕，就得到一張材料清單：要什麼、有多少、還缺多少。
-- [AutoSpellQueue](https://www.curseforge.com/wow/addons/autospellqueue) —— 依專精自動調整施法容限，疊上你的延遲；不是固定數字，也不用你手動調。

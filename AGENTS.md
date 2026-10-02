@@ -8,10 +8,10 @@ WoW 插件：把全账号的物品数量显示在物品提示框上。
 
 | 位置 | 说明 |
 |---|---|
-| 仓库根 | 插件运行文件 + 三语 README / CHANGELOG + `LICENSE.txt` |
+| 仓库根 | 插件运行文件 + 双语 README / CHANGELOG + `LICENSE.txt` |
 | `Media/` | 插件列表图标（`.tga`），随包发布 |
 | `tools/` | 语法检查、弃用 API 审计、无头冒烟测试、打包与上传脚本 |
-| `docs/` | 公开文档：审计报告、打码后的截图、CurseForge 三语描述 |
+| `docs/` | 公开文档：审计报告、打码后的截图、CurseForge 双语描述 |
 | `.scratch/` | 一次性 / 本机专用脚本（git 忽略，只保留 `.gitkeep`） |
 
 游戏内的运行副本在 `World of Warcraft\_retail_\Interface\AddOns\StockTake`。**仓库是事实源**，改完需要同步运行文件过去（游戏只加载 `.toc` 列出的文件，但运行副本保持精简最省心）。
@@ -22,7 +22,7 @@ WoW 插件：把全账号的物品数量显示在物品提示框上。
 node tools/lua-check.js .     # Lua 语法
 node tools/api-audit.js .     # 本项目历史踩过的弃用 / 不存在 API（规则表）
 node tools/simple-smoke.js    # 无头冒烟测试（fengari VM + 自建 API 模拟层）
-node tools/check-zhtw.js      # 繁体文案里混进简体字
+node tools/check-zhtw.js      # 繁体文案里混进简体字（仓库已无繁体文档，保留脚本备用）
 ```
 
 第 5 道关卡（与**官方 apidoc** 对表，抓"引用了不存在的 API"最有效）：
@@ -40,8 +40,8 @@ apidoc 镜像的取法：从 Gethe/wow-ui-source 上**与本机客户端 build �
 
 ## 硬性规则
 
-1. **三语文案必须同改**：`README{,.en,.zhTW}.md`、`CHANGELOG{,.en,.zhTW}.md`、`Locales.lua` 的三张表、`.toc` 的 `Title-*` / `Notes-*`。加新语言时最容易漏的是**旧语言的主文档**（简体 / 英文 README 的语言行）。
-2. **语言只称「简体中文 / 繁體中文 / English」**，不出现任何地区性字样。
+1. **双语文案必须同改**：`README.md` + `README.en.md`、`CHANGELOG.md` + `CHANGELOG.en.md`（2026-10-02 起文档只维护「English / 简体中文」；不再有繁體文档）。**游戏内语言表仍保持三语** —— `Locales.lua` 的三张表与 `.toc` 的 `Title-*` / `Notes-*` 是玩家端能力，不随文档语言调整而删。
+2. **语言只称「简体中文 / English」**（代码语言键为 `zhCN` / `enUS` / `zhTW`），不出现任何地区性字样。
 3. **Lua 与 .toc 用 LF 行尾、UTF-8 无 BOM**（`.gitattributes` 已固定行尾）。
 4. **默认值必须"不干预"**：任何全局生效的设置，默认值都要让它装上等于没装。
 5. **改 API 前先实核**：以官方 apidoc（对应客户端 build）为准，别信记忆与二手转述。注意 apidoc **不收录老式全局函数**（如 `GetInventoryItemID`），"apidoc 里没有"不能单独定罪一个 API 不存在——需要 wiki 或游戏内 `/dump` 交叉。
@@ -71,7 +71,7 @@ pwsh tools/upload-to-curseforge.ps1 -ProjectId 1714499    # token 走环境变�
 - `SettingsCheckboxTemplate` **本身没有文本元素**；对它 `SetText` 会造出没有锚点的 FontString——API 读回能过，字却看不见。勾选框标签要自建 FontString 并显式锚定。
 - 行号可能是浮点数（`1.0 .. "" == "1.0"`）——构造控件名一律 `string.format("%d", math.floor(i))`。
 - 设置面板的构建要挂在**登录事件**上，不要挂在斜杠命令里：玩家经 ESC → 选项 → 插件 打开面板不会走命令入口。
-- 先写日志、后改文案时，**日志会漏掉后加的语言**——三语化之后任何文案变动都要三份同改。
+- 先写日志、后改文案时，**日志会漏掉后加的语言**——任何文案变动都要两份（简体 / English）同改。
 - **给人跑 `/run` 诊断命令有三条硬约束**（都踩过）：① 聊天输入框上限 **255 字符**，超了直接发不出去；
   ② WoW **默认不显示 Lua 错误**（`/console scriptErrors 1` 才开），所以命令一旦报错，用户看到的就是
   **"什么都没发生"**；③ 因此命令必须**自带可见输出**——连失败分支也要 `print`（例如"没找到物品"），

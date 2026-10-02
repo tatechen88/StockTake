@@ -59,4 +59,4 @@ Lead 统一裁决修复。**结论：P0 = 0，P1 = 0**；接受 P2×3（文档�
 
 | 文件 | 内容 |
 |---|---|
-| `curseforge-description.md` | CurseForge 项目页描述（英文 / 简体中文 / 繁體中文三语） |
+| `curseforge-description.md` | CurseForge 项目页描述（英文 / 简体中文 双语） |

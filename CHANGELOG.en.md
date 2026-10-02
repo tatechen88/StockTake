@@ -2,8 +2,7 @@
 
 > This is the English changelog and covers the publicly released versions (0.9.3 onward).
 > The full internal history of earlier versions (0.9.2 and before) stays in the Simplified
-> Chinese [`CHANGELOG.md`](CHANGELOG.md); the Traditional Chinese version is
-> [`CHANGELOG.zhTW.md`](CHANGELOG.zhTW.md).
+> Chinese [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 0.9.7 — 2026-09-30 · Equipped items: fixed counting, and given their own column
 

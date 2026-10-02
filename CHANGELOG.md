@@ -1,7 +1,7 @@
 # Changelog — 数量盘点 StockTake
 
 > 本文件为**简体中文**版，含全部历史记录。
-> 繁體中文见 [`CHANGELOG.zhTW.md`](CHANGELOG.zhTW.md)；English 见 [`CHANGELOG.en.md`](CHANGELOG.en.md)。
+> English 见 [`CHANGELOG.en.md`](CHANGELOG.en.md)。
 
 ## 0.9.7 — 2026-09-30 · 已装备物品的数量口径：修正计数 + 单独成列
 
