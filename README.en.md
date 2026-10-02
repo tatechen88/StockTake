@@ -2,6 +2,16 @@
 
 > Written for the veteran who still logs onto alts just to check how many of something you actually own.
 
+## Features
+
+- Counts come from bags, bank (warband bank included) and every character on your account.
+- One row per character, your current character first; total on the last row.
+- Character names are class-coloured; the parentheses line up in one column.
+- Auction house, chat links and the bank all work the same way.
+- Options: show/hide the total row, tooltip font size (default "follow game"), and which alts to show.
+- Slash commands: /st en, /st zh, /st tw, /st auto, /st clean [days].
+- Each character is recorded on login (bags) and when you open the bank.
+- 5 Lua files, no libraries.
 ## Why you'll want it
 
 After all these years, your bank isn't "one character's bank" — it's **one account's bank**. Flasks on the druid, ore in the mage's bags, and a pile of gems sitting in the warband bank. Wanting to know "how many of these do I actually have?" used to mean character-switching and bag-digging, or installing something the size of BagSync.
@@ -81,14 +91,7 @@ Three languages are built in: `/st zh` Simplified Chinese, `/st tw` Traditional 
 Drop the `StockTake` folder into `World of Warcraft\_retail_\Interface\AddOns\`, restart the client or `/reload`. That's all.
 (The addon shows up in your addon list as **StockTake**; the folder name is just an internal identifier.)
 
-## My other addon
+## My other addons
 
-**CraftPro** — record a crafting recipe with one click and it becomes a checklist: what that recipe needs, how many you have (bags, bank, reagent bank, warband bank) and what is still missing; a click on a material row searches it at the auction house.
-
-StockTake tells you how many you own, CraftPro tells you what a recipe still needs - they go well together.
-
-<https://www.curseforge.com/wow/addons/craftpro>
-
----
-
-*If all you want is to quietly check a number, it'll be a handy tool.*
+- [CraftPro](https://www.curseforge.com/wow/addons/craftpro) - record a crafting recipe with one click and see what it needs, what you have and what is still missing.
+- [AutoSpellQueue](https://www.curseforge.com/wow/addons/autospellqueue) - tunes the spell queue window per spec and folds in your latency; no fixed number, no manual tuning.
