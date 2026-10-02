@@ -6,7 +6,7 @@
 
 | 文件 | 说明 |
 |---|---|
-| `images/tooltip-zhcn.png` | 悬停提示框效果（简体中文客户端）。角色名已打码 |
+| `images/tooltip-zhcn.png` | 悬停提示框效果（中文客户端）。角色名已打码 |
 | `images/settings-en.png` | 设置面板（英文客户端）。角色名已打码 |
 
 数百张原始实机截图（含未打码角色名与大量调试裁图）不进仓库，只保留上面两张打码后的成品。
@@ -59,4 +59,4 @@ Lead 统一裁决修复。**结论：P0 = 0，P1 = 0**；接受 P2×3（文档�
 
 | 文件 | 内容 |
 |---|---|
-| `curseforge-description.md` | CurseForge 项目页描述（英文 / 简体中文 双语） |
+| `curseforge-description.md` | CurseForge 项目页描述（英文 / 中文 双语） |

@@ -2,7 +2,7 @@
 
 > Hover any item to see how many you own account-wide - bags, bank and every character - right on the tooltip.
 
-简体中文（参考，不贴）
+中文（参考，不贴）
 
 > 鼠标移到任何物品上，提示框直接显示全账号持有量：背包、银行与所有角色。
 
