@@ -1,4 +1,5 @@
-## Summary（General → Summary；CF 表单只收英文 ✓）
+## Summary
+<!-- 上传操作：General 标签 → Summary 框；CF 表单只收英文；本行是上传说明，不要粘贴到 CF -->
 
 > Hover any item to see how many you own account-wide - bags, bank and every character - right on the tooltip.
 
