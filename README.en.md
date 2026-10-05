@@ -5,6 +5,7 @@
 ## Features
 
 - Counts come from bags, bank (warband bank included) and every character on your account.
+- Same-name quality materials are counted per tier: a character's total adds up every tier, with a line under it listing how many of each tier you hold, marked with the game's own quality icons (rank 1 grey diamond, rank 5 a gold star).
 - One row per character, your current character first; total on the last row.
 - Character names are class-coloured; the parentheses line up in one column.
 - Auction house, chat links and the bank all work the same way.
@@ -73,6 +74,16 @@ Not in "bags" - that counts your bags only. Equipped items get their own "equipp
 your only copy reads `Name: 1     (bags 0 · equipped 1)`: a plain answer that nothing is spare.
 The real-time "equipped" column applies to your **current character only**; other characters are stored
 as bags + bank snapshots, so gear they are wearing is not in their rows or the total.
+
+**How are same-name quality materials (herbs, ore, gemdust…) shown?**
+In 12.x each quality tier of a material is a **separate item** (same name and icon — Glimmering
+Gemdust rank 1 and rank 5 are two different items). Hovering any one tier now makes each row's total
+add up all tiers, with a line underneath listing each tier's count, marked with the **game's own
+quality icons** (rank 1 is a grey diamond, rank 5 that single gold star), e.g. `◆ 1 · ★ 9`. That extra
+line only appears when you actually hold two or more tiers — single-tier
+materials take no extra room. Tiers are discovered from every character's recorded bags/bank plus
+whatever containers are readable right now, so bags, bank (warband bank included), auction house and
+chat links all work the same way.
 
 **Where is the data stored? How do I reset it?**
 `WTF\Account\<account>\SavedVariables\StockTake.lua` — item IDs and numbers only, no names or icons. For a clean slate, delete that file while the game is closed.

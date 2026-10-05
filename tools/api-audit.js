@@ -32,6 +32,10 @@ const RULES = [
 // 允许清单：路径包含这些片段的文件跳过对应规则（如 diag 自检允许调用 C_Item.GetItemCount）
 const ALLOW = [
   { file: /Diag|Core\.lua|Counter\.lua/i, rule: /GetItemCount/ },
+  // Tooltip.lua 的品质归组要用物品名（同名 = 同一种材料的品质变体），
+  // 两条来源（C_Item.GetItemNameByID / C_Item.GetItemInfo）都做了 nil 与 pcall 容错，
+  // 故该 WARN 在此文件属误报。
+  { file: /Tooltip\.lua$/, rule: /GetItemInfo 可能返回 nil/ },
 ];
 // 扫描时跳过的目录：node_modules 里的 fengari 自带 4 个 .lua 测试文件，会污染计数
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.scratch', 'reports']);

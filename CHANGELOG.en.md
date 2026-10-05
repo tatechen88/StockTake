@@ -4,6 +4,38 @@
 > The full internal history of earlier versions (0.9.2 and before) stays in the Simplified
 > Chinese [`CHANGELOG.md`](CHANGELOG.md).
 
+## 1.0 — 2026-10-05 · First stable release: per-tier counts for same-name quality reagents
+
+> **1.0 is the first stable (Release) build.** Every "where do the numbers come from" rule now matches
+> the game: bags / bank (warband bank included) / equipped / same-name quality tiers. This is the
+> in-development 0.9.8 - it was only ever built locally and **never published** (the last public
+> CurseForge file was 0.9.7), so the version jumps straight from 0.9.7 to 1.0.
+
+### Fixed
+- **Same-name quality reagents are no longer counted one tier at a time.** In 12.x a crafting
+  reagent's quality tiers are **separate item IDs** (Glimmering Gemdust rank 1 and rank 5 are two
+  IDs with the same name and icon), so hovering the rank-1 stack used to show just 1 and the nine
+  rank-5 ones were invisible. Tiers are now grouped by Blizzard's own rule - **identical name +
+  is a quality crafting reagent** (the client's own reagent-slot code identifies adjacent quality
+  variants by identical name; see `Blizzard_ProfessionsRecipeReagentSlot.lua`):
+  - a character's total now adds up every tier (10 in the example), and so does the total row;
+  - one extra line under each character row shows **that tier's marker plus its count**, using the
+    **game's own quality icon** (rank 1 is a grey diamond, rank 5 that single gold star - same source
+    as the game's own reagent-allocation lines), e.g. `◆ 1 · ★ 9`;
+  - it only appears when the item really **spans two or more tiers** - single-tier materials
+    (most herbs and ore) look exactly as before.
+
+### Note
+- Quality variants are discovered from the item IDs we have recorded (bag/bank snapshots of every
+  character) plus **whatever containers are readable right now**, so no crafting window is needed:
+  bags, bank (including tiers parked only in the warband bank), auction house and chat links all
+  work. Tiers nobody owns take no space.
+- If an item's data is not loaded yet, the known tier is shown first and the block is redrawn
+  automatically once `GET_ITEM_INFO_RECEIVED` arrives - it never stays half-filled. On a client
+  without the quality API the behaviour is exactly as before.
+- Saved data format is unchanged; no migration needed. Test cases 228 → 261.
+
+---
 ## 0.9.7 — 2026-09-30 · Equipped items: fixed counting, and given their own column
 
 ### Fixed

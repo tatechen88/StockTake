@@ -1137,6 +1137,212 @@ function renderWith(itemID, opts) {
   ok(mock.evalLua('return tostring(StockTake:Get("locale"))').value === 'nil', '14) /st auto 清掉覆盖，回到跟随客户端');
 }
 
+/* ── 15. 0.9.8：同名多品质材料（星数 + 该品质数量） ───────────────── */
+// 12.x 把制造材料的品质拆成**不同 itemID**（同名同图标），只查悬停的那一个 ID 会漏掉别的品质。
+// 归组判据 = 同名 + 是品质材料（暴雪自己在试剂槽代码里也以"同名"识别相邻的品质变体）；
+// 档号来自 C_TradeSkillUI.GetItemReagentQualityByItemInfo（兜底 GetItemReagentQualityInfo.quality）。
+function markQuality(mock, id, name, quality, opts) {
+  mock.setItemMeta(id, Object.assign({
+    name: name, icon: 555, craftingQuality: quality,
+  }, opts || {}));
+}
+{
+  // 15a 同一角色的两种品质：总数相加，星标行给出每个品质的数量
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1000, 1), it(1005, 9)] } }));
+  lifecycle(mock);                                  // 登录扫描：两个品质的 ID 都进自己的记录
+  markQuality(mock, 1000, '微光宝石尘', 1);
+  markQuality(mock, 1005, '微光宝石尘', 5);
+  mock.setItemCount(1000, 1);
+  mock.setItemCount(1005, 9);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1000 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  eq(texts.length, 5, '15) 版式 = 空行 + 角色行 + 星标行 + 合计行 + 空行');
+  ok(/: 10/.test(texts[1] || ''), '15) 总数 = 1 星 1 + 5 星 9 = 10（实际：' + texts[1] + '）');
+  ok(/背 10/.test(texts[1] || ''), '15) 「背」同样是两种品质相加');
+  ok((texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier1:16:16|t 1') !== -1
+    && (texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 9') !== -1,
+    '15) 星标行 = 品质图标 + 该品质数量（实际：' + texts[2] + '）');
+  ok(/合计/.test(texts[3] || '') && /10/.test(texts[3] || ''), '15) 合计行也用跨品质总数');
+}
+{
+  // 15b 跨角色：每个角色各自给星标明细；自己置顶，合计为全体相加
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1000, 1), it(1005, 9)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1000, '微光宝石尘', 1);
+  markQuality(mock, 1005, '微光宝石尘', 5);
+  mock.runLuaCode('SL2_DB.chars["TestRealm-AltOne"] = { name = "AltOne", class = "MAGE", bags = { [1005] = 3 }, bank = {} }');
+  mock.setItemCount(1000, 1);
+  mock.setItemCount(1005, 9);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1000 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  eq(texts.length, 7, '15) 版式 = 空行 + 自己 + 星标 + 其他角色 + 星标 + 合计 + 空行');
+  ok(texts[1].indexOf('TestChar') !== -1 && /: 10/.test(texts[1]), '15) 自己和两种品质合计 10（实际：' + texts[1] + '）');
+  ok((texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier1:16:16|t 1') !== -1
+    && (texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 9') !== -1, '15) 自己的星标行列出两种品质');
+  ok(texts[3].indexOf('AltOne') !== -1 && /: 3/.test(texts[3]), '15) 其他角色仍只占一行（数量按品质相加）');
+  ok((texts[4] || '').indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 3') !== -1, '15) 其他角色也给该品质的数量');
+  ok(/合计/.test(texts[5] || '') && /13/.test(texts[5] || ''), '15) 合计 = 10 + 3 = 13');
+}
+{
+  // 15c 只有单一品质时保持旧版式（不给每种草药都加一行）
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1005, 9)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1005, '微光宝石尘', 5);
+  mock.setItemCount(1005, 9);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1005 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts.every((t) => t.indexOf('|T') === -1), '15) 单品质材料不加星标行');
+  ok(/: 9/.test(texts[1] || ''), '15) 单品质的数量照常显示');
+}
+{
+  // 15d 归组判据门禁：同图标但不同名的不许并进来
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1000, 1), it(1005, 9), it(1006, 4)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1000, '微光宝石尘', 1);
+  markQuality(mock, 1005, '微光宝石尘', 5);
+  mock.setItemMeta(1006, { name: '另一件材料', icon: 555, craftingQuality: 2 });
+  mock.setItemCount(1000, 1);
+  mock.setItemCount(1005, 9);
+  mock.setItemCount(1006, 4);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1000 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts[1].indexOf('TestChar') !== -1 && /: 10/.test(texts[1]), '15) 同名的两个品质合并成 10（实际：' + texts[1] + '）');
+  ok(!/: 14/.test(texts[1]), '15) 同图标但不同名的物品不被并入');
+}
+{
+  // 15h 判据以「同名」为准：两个品质的图标文件万一不同，也照样合并
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1010, 2), it(1015, 8)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1010, '微光宝石尘', 1, { icon: 555 });
+  markQuality(mock, 1015, '微光宝石尘', 5, { icon: 777 });
+  mock.setItemCount(1010, 2);
+  mock.setItemCount(1015, 8);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1010 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts[1].indexOf('TestChar') !== -1 && /: 10/.test(texts[1]), '15) 同名即可归组（图标不同也合并）');
+}
+{
+  // 15i 只在账号（战团）银行里囤着的品质也要能被发现：
+  // 存档快照按设计不含账号银行（它由 GetItemCount 实时计入，避免重复计数），
+  // 所以发现品质变体时额外读一次"此刻能读到的容器"。
+  const { mock } = load(Object.assign({}, SCENARIO, {
+    containers: { 0: [it(1000, 1)], 12: [it(1005, 9)] },
+    bankTabIDs: { 0: [], 1: [], 2: [12] },
+  }));
+  lifecycle(mock);
+  markQuality(mock, 1000, '微光宝石尘', 1);
+  markQuality(mock, 1005, '微光宝石尘', 5);
+  mock.setItemCount(1000, 1);          // 自己背包 1
+  mock.setItemCount(1005, 0);          // 5 星不在背包/角色银行
+  mock.setItemCountAccount(1005, 9);   // 只在战团银行
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1000 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts[1].indexOf('TestChar') !== -1 && /: 10/.test(texts[1]),
+    '15) 只在战团银行里的品质也能被发现（1 + 9 = 10，实际：' + texts[1] + '）');
+  ok(/银 9/.test(texts[1]), '15) 那 9 个计入「银」（战团并入银），没有被当成背包');
+  ok((texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 9') !== -1, '15) 星标行给出 5 星 9 个');
+}
+{
+  // 15j 名字来源的兜底：C_Item.GetItemNameByID 在个别客户端版本上拿不到时，
+  // 退回读物品信息（C_Item.GetItemInfo / 全局 GetItemInfo）也照样能归组。
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1020, 3), it(1025, 7)] } }));
+  lifecycle(mock);
+  mock.evalLua('C_Item.GetItemNameByID = nil');
+  markQuality(mock, 1020, '微光宝石尘', 1);
+  markQuality(mock, 1025, '微光宝石尘', 5);
+  mock.setItemCount(1020, 3);
+  mock.setItemCount(1025, 7);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1020 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts[1].indexOf('TestChar') !== -1 && /: 10/.test(texts[1]), '15) 名字走兜底来源也能归组（3+7=10）');
+}
+{
+  // 15k 档号来源的兜底：GetItemReagentQualityByItemInfo 拿不到时，
+  // 退回 CraftingQualityInfo.quality（同作者 CraftPro 在真机核实过的字段）。
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1030, 4), it(1035, 6)] } }));
+  lifecycle(mock);
+  mock.evalLua('C_TradeSkillUI.GetItemReagentQualityByItemInfo = nil');
+  markQuality(mock, 1030, '微光宝石尘', 1);
+  markQuality(mock, 1035, '微光宝石尘', 5);
+  mock.setItemCount(1030, 4);
+  mock.setItemCount(1035, 6);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1030 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts[1].indexOf('TestChar') !== -1 && /: 10/.test(texts[1]), '15) 档号走兜底来源也能归组（4+6=10）');
+  ok((texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 6') !== -1, '15) 5 星数量 6');
+}
+{
+  // 15l 档标：每个品质都用游戏原本的那一枚图标；拿不到图集时才退回文字符号
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1040, 2), it(1045, 8)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1040, '微光宝石尘', 1);
+  markQuality(mock, 1045, '微光宝石尘', 5);
+  mock.setItemCount(1040, 2);
+  mock.setItemCount(1045, 8);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 1040 });
+  let texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok((texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier1:16:16|t 2') !== -1,
+    '15) 1 星用游戏原本的灰色菱形品质图标（实际：' + texts[2] + '）');
+  ok((texts[2] || '').indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 8') !== -1,
+    '15) 5 星用游戏原本的那一枚金星图标（不重复拼星号）');
+
+  const b = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1040, 2), it(1045, 8)] } }));
+  lifecycle(b.mock);
+  b.mock.evalLua('CreateAtlasMarkup = nil');          // 图集标记不可用
+  markQuality(b.mock, 1040, '微光宝石尘', 1);
+  markQuality(b.mock, 1045, '微光宝石尘', 5);
+  b.mock.setItemCount(1040, 2);
+  b.mock.setItemCount(1045, 8);
+  b.mock.invokeTooltipPostCall(1, b.mock.gameTooltip, { id: 1040 });
+  texts = readLines(b.mock, 'GameTooltip').map((l) => l.text);
+  ok((texts[2] || '').indexOf('|cff9d9d9d◆|r 2') !== -1, '15) 无图集时 1 星退回灰色文字菱形（信息不丢）');
+  ok((texts[2] || '').indexOf('|cFFFFD100★|r 8') !== -1, '15) 无图集时其余档退回一枚金色 ★');
+}
+{
+  // 15e 物品数据未载入：先用已知的那件显示，到货（GET_ITEM_INFO_RECEIVED）后自动补上
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1000, 1), it(1005, 9)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1000, '微光宝石尘', 1);
+  markQuality(mock, 1005, '微光宝石尘', 5, { nameLoaded: false });
+  mock.setItemCount(1000, 1);
+  mock.setItemCount(1005, 9);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 1000 }, [{ type: 'ItemName', text: '微光宝石尘' }]);
+  let texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts.some((t) => t.indexOf('TestChar') !== -1 && /: 1 /.test(t)),
+    '15) 名字还没载入时只显示已知的那一件（实际：' + texts.join(' ') + '）');
+  ok(mock.loadRequests.indexOf(1005) !== -1, '15) 对未载入的同图标候选发起了 RequestLoadItemDataByID');
+  mock.deliverItemData(1005);
+  mock.advanceTime(0.2);                            // 0.1 去抖后重放已显示的提示框
+  texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts.some((t) => t.indexOf('TestChar') !== -1 && /: 10/.test(t)), '15) 数据到货后自动重画：总数变 10');
+  ok(texts.some((t) => t.indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 9') !== -1), '15) 5 星的星标行补上');
+}
+{
+  // 15f 性能护栏：登录阶段 GET_ITEM_INFO_RECEIVED 会成百上千次，没请求过加载就不该重画
+  const { mock } = load(SCENARIO);
+  lifecycle(mock);
+  mock.setItemMeta(100, { name: '普通物品', icon: 1 });
+  mock.setItemCount(100, 1);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 100 }, [{ type: 'ItemName', text: 'I' }]);
+  mock.advanceTime(0.5);                            // 先把登录扫描引发的刷新去抖跑完
+  const replays = () => (mock.calls || []).filter((c) => c.scope === 'region' && c.method === 'SetHyperlink').length;
+  const before = replays();
+  mock.fireEvent('GET_ITEM_INFO_RECEIVED', 4242, true);
+  mock.advanceTime(0.3);
+  eq(replays(), before, '15) 未请求过加载时 GET_ITEM_INFO_RECEIVED 不触发提示框重画');
+}
+{
+  // 15g 非品质物品完全不受影响（装置已提供品质 API 也一样）
+  const { mock } = load(SCENARIO);
+  lifecycle(mock);
+  mock.setItemMeta(100, { name: '普通物品', icon: 1 });
+  mock.setItemCount(100, 2);
+  mock.invokeTooltipPostCall(1, mock.gameTooltip, { id: 100 });
+  const texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts.every((t) => t.indexOf('|T') === -1), '15) 非品质物品不加星标行');
+  ok(texts.some((t) => t.indexOf('TestChar') !== -1 && /: 2 /.test(t)), '15) 非品质物品的数量照常');
+}
+
 /* ── 汇总 ───────────────────────────────────────────────────────── */
 console.log(`汇总：${total} 用例，${passed} 通过，${total - passed} 失败`);
 if (failures.length) {

@@ -8,10 +8,12 @@ local ADDON_NAME, SL = ...
 local CACHE_MAX = 128
 local cache = {}                            -- itemID -> rows
 local cacheFifo = {}                        -- 插入顺序（淘汰最旧）
+local variantCache = {}                     -- itemID -> 品质变体表（false = 不是品质材料）
 
 local function ClearCache()
     for key in pairs(cache) do cache[key] = nil end
     for i = #cacheFifo, 1, -1 do cacheFifo[i] = nil end
+    for key in pairs(variantCache) do variantCache[key] = nil end
 end
 
 local function CachePut(itemID, rows)
@@ -55,22 +57,268 @@ local function CurrentCounts(itemID)
     return bags, bank, equipped
 end
 
+-- ── 品质材料（同名多品质物品） ──────────────────────────────────────
+-- 12.x 的制造材料按品质拆成**多个独立 itemID**：微光宝石尘的 1 星与 5 星是两个物品 ID
+--（同名、同图标，只有品质不同）。所以只查悬停那一件的 ID，永远只拿得到一个品质的数量
+-- —— 这就是"明明是 1 星 1 个 + 5 星 9 个，却只显示 1"的原因。
+--
+-- 归组判据沿用暴雪自己的口径：Blizzard_ProfessionsRecipeReagentSlot.lua 里，basic 试剂槽
+-- 相邻的变体被描述为 "a quality reagent whose name is identical to the adjacent reagents
+-- in the table"，即**同名 + 是带品质的制造材料**。这里照做。
+--
+-- 变体从"我们已经记下的物品 ID"（各角色背包 / 银行快照）以及此刻能读到的容器里认出来，
+-- 因此不依赖配方上下文：背包、银行（含只在战团银行里囤着的品质）、拍卖行、聊天链接里悬停
+-- 都成立；谁都没有的品质不占位。拿不到品质 API 时（旧客户端 / 非材料物品）一切保持旧行为。
+local function ReagentQuality(itemID)
+    local ts = C_TradeSkillUI
+    -- 官方 GetItemReagentQualityByItemInfo 直接给档号（同机 Auctionator 用的就是它；
+    -- apidoc 的 ItemInfo = itemID | itemLink | itemName，传裸 itemID 合法）
+    local fn = ts and ts.GetItemReagentQualityByItemInfo
+    if type(fn) == "function" then
+        local ok, quality = pcall(fn, itemID)
+        if ok and type(quality) == "number" and quality > 0 then return quality end
+    end
+    -- 兜底：CraftingQualityInfo 里的档号（同作者 CraftPro 在真机核实过的字段；个别版本叫 qualityID）
+    local infoFn = ts and ts.GetItemReagentQualityInfo
+    if type(infoFn) == "function" then
+        local ok, info = pcall(infoFn, itemID)
+        if ok and type(info) == "table" then
+            local quality = info.quality or info.qualityID
+            if type(quality) == "number" and quality > 0 then return quality end
+        end
+    end
+    return nil
+end
+
+-- 该档的品质图标（CraftingQualityInfo.iconChat）——游戏自己在「分配 / 拍卖」那些行里用的就是它。
+-- 1 星用它（灰色菱形；1 星在游戏里本来就不是星），2 星及以上用金色 ★ × 档数。
+-- 拿不到图集名也不影响：调用方会退回文字菱形。
+local function ReagentAtlas(itemID)
+    local ts = C_TradeSkillUI
+    local fn = ts and ts.GetItemReagentQualityInfo
+    if type(fn) ~= "function" then return nil end
+    local ok, info = pcall(fn, itemID)
+    if ok and type(info) == "table" and type(info.iconChat) == "string" and info.iconChat ~= "" then
+        return info.iconChat
+    end
+    return nil
+end
+
+local function ItemInstantIcon(itemID)
+    local fn = C_Item and C_Item.GetItemInfoInstant
+    if type(fn) ~= "function" then return nil end
+    local ok, _, _, _, _, icon = pcall(fn, itemID)
+    if ok and type(icon) == "number" then return icon end
+    return nil
+end
+
+local function ItemNameByID(itemID)
+    -- 首选 GetItemNameByID；个别客户端版本/加载时序下可能拿不到，退到物品信息本身
+    local fn = C_Item and C_Item.GetItemNameByID
+    if type(fn) == "function" then
+        local ok, name = pcall(fn, itemID)
+        if ok and type(name) == "string" and name ~= "" then return name end
+    end
+    local info = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    if type(info) == "function" then
+        local ok, name = pcall(info, itemID)
+        if ok and type(name) == "string" and name ~= "" then return name end
+    end
+    return nil
+end
+
+-- 物品数据还没载入时请客户端加载，到货（GET_ITEM_INFO_RECEIVED）后再重画一次提示框
+local waitingForItemData = false
+
+local function RequestItemData(itemID)
+    local fn = C_Item and C_Item.RequestLoadItemDataByID
+    if type(fn) ~= "function" then return end
+    waitingForItemData = true
+    pcall(fn, itemID)
+end
+
+-- itemID -> { quality, icon, name, atlas } | false（不是带品质的制造材料 / 客户端没有这个 ID）。
+-- quality 或 name 为 nil = 物品数据还没载入（真机上名字要等数据到货，品质也可能要），
+-- 这种"暂时读不到"不下负结论、也不写缓存，下次再试。
+local metaCache = {}
+
+local function MetaOf(itemID)
+    local meta = metaCache[itemID]
+    if meta ~= nil then
+        if meta then
+            -- 上一次没读到的字段再试一次：数据到货后即可归组
+            if meta.name == nil then meta.name = ItemNameByID(itemID) end
+            if meta.quality == nil then meta.quality = ReagentQuality(itemID) end
+            if meta.atlas == nil then meta.atlas = ReagentAtlas(itemID) end
+        end
+        return meta
+    end
+    local icon = ItemInstantIcon(itemID)
+    if icon == nil then
+        metaCache[itemID] = false              -- 客户端物品库里没有这个 ID
+        return false
+    end
+    local quality = ReagentQuality(itemID)
+    local name = ItemNameByID(itemID)
+    if quality == nil and name == nil then
+        return { icon = icon }                 -- 数据未载入：暂时不下结论（不缓存）
+    end
+    if quality == nil then
+        metaCache[itemID] = false              -- 数据已载入，但不是带品质的制造材料 → 定论
+        return false
+    end
+    meta = { quality = quality, icon = icon, name = name, atlas = ReagentAtlas(itemID) }
+    metaCache[itemID] = meta
+    return meta
+end
+
+-- 把「此刻能读到的容器」里出现的 itemID 交给 fn。
+-- **只用于发现品质变体，绝不参与计数**（计数仍由 C_Item.GetItemCount / 存档快照给出，
+-- 所以不会重复计数）。存档快照已覆盖背包与角色银行，这一步主要补上三种情况：
+--   · 只在账号（战团）银行里囤着的品质 —— 快照按设计不含账号银行；
+--   · 刚拾取/刚挪动、0.2s 去抖的背包快照还没跟上的物品；
+--   · 银行开着时的银行页（读得到才有数据，读不到自然跳过）。
+local function ForEachContainerItem(fn)
+    if type(C_Container) ~= "table" then return end
+    local getSlots = C_Container.GetContainerNumSlots
+    local getInfo = C_Container.GetContainerItemInfo
+    if type(getSlots) ~= "function" or type(getInfo) ~= "function" then return end
+
+    local ids = {}
+    local B = (Enum and Enum.BagIndex) or {}
+    local named = { B.Backpack, B.Bag_1, B.Bag_2, B.Bag_3, B.Bag_4, B.ReagentBag }
+    for i = 1, #named do
+        if type(named[i]) == "number" then ids[#ids + 1] = named[i] end
+    end
+    if #ids == 0 then ids = { 0, 1, 2, 3, 4, 5 } end
+
+    if type(C_Bank) == "table" and type(C_Bank.FetchPurchasedBankTabIDs) == "function"
+        and Enum and Enum.BankType then
+        local kinds = { Enum.BankType.Character, Enum.BankType.Account }
+        for k = 1, #kinds do
+            local ok, list = pcall(C_Bank.FetchPurchasedBankTabIDs, kinds[k])
+            if ok and type(list) == "table" then
+                for i = 1, #list do
+                    if type(list[i]) == "number" then ids[#ids + 1] = list[i] end
+                end
+            end
+        end
+    end
+
+    for i = 1, #ids do
+        local ok, slots = pcall(getSlots, ids[i])
+        slots = (ok and tonumber(slots)) or 0
+        for slot = 1, slots do
+            local info = getInfo(ids[i], slot)
+            if type(info) == "table" and type(info.itemID) == "number" then
+                fn(info.itemID)
+            end
+        end
+    end
+end
+
+-- 把「同名 + 是品质材料」的 ID 收成一张变体表（按品质升序）。
+-- 返回 nil = 悬停的这件不是品质材料 → 走原来的单 ID 路径。
+-- 判据以**同名**为准（暴雪自己的口径）；图标只用来决定"值不值得请客户端加载物品数据"，
+-- 避免为几千条历史记录里的未载入 ID 一次性发出海量加载请求。
+local function CollectVariants(itemID)
+    local selfMeta = MetaOf(itemID)
+    if not selfMeta or not selfMeta.quality then return nil end
+    local name = selfMeta.name or ItemNameByID(itemID)
+    if name == nil then return nil end         -- 连名字都读不到就不猜（保守）
+    local icon = selfMeta.icon
+
+    local found = { [itemID] = selfMeta }
+
+    local function Consider(id)
+        if type(id) ~= "number" or found[id] ~= nil then return end
+        local meta = MetaOf(id)
+        if not meta then return end
+        if meta.name == nil or meta.quality == nil then
+            -- 数据未载入：同图标才值得请客户端加载（限量）
+            if meta.icon == icon then RequestItemData(id) end
+        elseif meta.name == name then
+            found[id] = meta
+        end
+    end
+
+    if type(SL2_DB) == "table" and type(SL2_DB.chars) == "table" then
+        for key, rec in pairs(SL2_DB.chars) do
+            if type(rec) == "table" and not SL:IsCharHidden(key) then
+                local lists = { rec.bags, rec.bank }
+                for i = 1, #lists do
+                    local list = lists[i]
+                    if type(list) == "table" then
+                        for id in pairs(list) do Consider(id) end
+                    end
+                end
+            end
+        end
+    end
+    ForEachContainerItem(Consider)
+
+    local variants = {}
+    for id, meta in pairs(found) do
+        variants[#variants + 1] = { itemID = id, quality = meta.quality, atlas = meta.atlas }
+    end
+    table.sort(variants, function(a, b)
+        if a.quality ~= b.quality then return a.quality < b.quality end
+        return a.itemID < b.itemID
+    end)
+    return variants
+end
+
+local function VariantsOf(itemID)
+    local cached = variantCache[itemID]
+    if cached ~= nil then
+        if cached == false then return nil end
+        return cached
+    end
+    local variants = CollectVariants(itemID)
+    variantCache[itemID] = variants or false
+    return variants
+end
+
 local function BuildRows(itemID)
     local rows = {}
     local player = SL.player
     if not player then return rows end
 
-    local bags, bank, equipped = CurrentCounts(itemID)
-    equipped = equipped or 0
-    -- 一件都没有时不占位（0 在 Lua 里是真值，必须显式判断）。
-    -- 装备同样算"有"：只戴着、没有备件时这一行也必须出现，
-    -- 否则玩家悬停自己身上的装备会看到"什么都没有"。
-    if bags and (bags + bank + equipped) > 0 then
-        rows[#rows + 1] = {
-            name = player.name, class = player.class,
-            bags = bags, bank = bank, equipped = equipped,
-            total = bags + bank + equipped, isPlayer = true,
-        }
+    -- 品质材料：各品质分头计数再相加；非品质材料 variants = nil，走原来的单 ID 逻辑。
+    local variants = VariantsOf(itemID)
+
+    if variants then
+        local bags, bank, equipped, tiers = 0, 0, 0, {}
+        for i = 1, #variants do
+            local b, k, e = CurrentCounts(variants[i].itemID)
+            if b then
+                k, e = k or 0, e or 0
+                bags, bank, equipped = bags + b, bank + k, equipped + e
+                if b + k + e > 0 then
+                    tiers[#tiers + 1] = { quality = variants[i].quality, atlas = variants[i].atlas, count = b + k + e }
+                end
+            end
+        end
+        -- 一件都没有时不占位（0 在 Lua 里是真值，必须显式判断）。
+        -- 装备同样算"有"：只戴着、没有备件时这一行也必须出现，
+        -- 否则玩家悬停自己身上的装备会看到"什么都没有"。
+        if bags + bank + equipped > 0 then
+            rows[#rows + 1] = {
+                name = player.name, class = player.class,
+                bags = bags, bank = bank, equipped = equipped,
+                total = bags + bank + equipped, isPlayer = true, tiers = tiers,
+            }
+        end
+    else
+        local bags, bank, equipped = CurrentCounts(itemID)
+        equipped = equipped or 0
+        if bags and (bags + bank + equipped) > 0 then
+            rows[#rows + 1] = {
+                name = player.name, class = player.class,
+                bags = bags, bank = bank, equipped = equipped,
+                total = bags + bank + equipped, isPlayer = true,
+            }
+        end
     end
 
     -- 其他角色：是否出现只由「显示哪些角色」逐角色勾选控制（0.9.4 起，
@@ -78,13 +326,32 @@ local function BuildRows(itemID)
     if type(SL2_DB) == "table" and type(SL2_DB.chars) == "table" then
         for key, rec in pairs(SL2_DB.chars) do
             if key ~= player.key and type(rec) == "table" and not SL:IsCharHidden(key) then
-                local b = (type(rec.bags) == "table" and rec.bags[itemID]) or 0
-                local k = (type(rec.bank) == "table" and rec.bank[itemID]) or 0
-                if b + k > 0 then
-                    rows[#rows + 1] = {
-                        name = rec.name or key, class = rec.class,
-                        bags = b, bank = k, total = b + k,
-                    }
+                if variants then
+                    local b, k, tiers = 0, 0, {}
+                    for i = 1, #variants do
+                        local vid = variants[i].itemID
+                        local vb = (type(rec.bags) == "table" and rec.bags[vid]) or 0
+                        local vk = (type(rec.bank) == "table" and rec.bank[vid]) or 0
+                        b, k = b + vb, k + vk
+                        if vb + vk > 0 then
+                            tiers[#tiers + 1] = { quality = variants[i].quality, atlas = variants[i].atlas, count = vb + vk }
+                        end
+                    end
+                    if b + k > 0 then
+                        rows[#rows + 1] = {
+                            name = rec.name or key, class = rec.class,
+                            bags = b, bank = k, total = b + k, tiers = tiers,
+                        }
+                    end
+                else
+                    local b = (type(rec.bags) == "table" and rec.bags[itemID]) or 0
+                    local k = (type(rec.bank) == "table" and rec.bank[itemID]) or 0
+                    if b + k > 0 then
+                        rows[#rows + 1] = {
+                            name = rec.name or key, class = rec.class,
+                            bags = b, bank = k, total = b + k,
+                        }
+                    end
                 end
             end
         end
@@ -96,6 +363,28 @@ local function BuildRows(itemID)
         if a.total ~= b.total then return a.total > b.total end
         return tostring(a.name) < tostring(b.name)
     end)
+
+    -- 星标明细只在**这个物品真的横跨 ≥2 个品质**时出现：
+    -- 单品质材料（大多数草药 / 矿石）保持原来的紧凑版式，不额外占行。
+    local seen, kinds = {}, 0
+    for i = 1, #rows do
+        local tiers = rows[i].tiers
+        if tiers then
+            for j = 1, #tiers do
+                local quality = tiers[j].quality
+                if not seen[quality] then
+                    seen[quality] = true
+                    kinds = kinds + 1
+                end
+            end
+        end
+    end
+    if kinds >= 2 then
+        for i = 1, #rows do
+            rows[i].showTiers = rows[i].tiers ~= nil and #rows[i].tiers > 0
+        end
+    end
+
     return rows
 end
 
@@ -131,6 +420,46 @@ local function RowDetail(row)
         detail = detail .. " · " .. L.EQUIPPED .. " " .. Num(row.equipped)
     end
     return L.PAREN_LEFT .. detail .. L.PAREN_RIGHT
+end
+
+-- ── 品质明细（档标 + 该品质的数量） ───────────────────────────────
+-- 一个品质一段：**游戏原本的品质图标 + 该品质的数量**。
+-- 游戏给的档标本来就是"一枚"（1 星 = 灰色菱形、5 星 = 金星…），所以不重复、不自己拼星号；
+-- 同一个 itemID 的档标来自 CraftingQualityInfo.iconChat —— 与游戏「分配 / 拍卖」那些行同源。
+-- 拿不到图集时才退回文字符号（1 星灰色菱形，其余金色星）。
+local TIER_INDENT = "    "
+local TIER_ICON_SIZE = 16
+local TIER_FALLBACK_DIAMOND = "|cff9d9d9d◆|r"
+local TIER_FALLBACK_STAR = "|cFFFFD100★|r"
+
+local function AtlasMark(atlas)
+    if type(atlas) ~= "string" or type(CreateAtlasMarkup) ~= "function" then return nil end
+    local ok, mark = pcall(CreateAtlasMarkup, atlas, TIER_ICON_SIZE, TIER_ICON_SIZE)
+    if ok and type(mark) == "string" and mark ~= "" then return mark end
+    return nil
+end
+
+local function TierMark(quality, atlas)
+    local mark = AtlasMark(atlas)
+    if mark then return mark end
+    if quality <= 1 then return TIER_FALLBACK_DIAMOND end
+    return TIER_FALLBACK_STAR
+end
+
+local function RowTiers(row)
+    local tiers = row.tiers
+    if not tiers or #tiers == 0 then return nil end
+    local parts = {}
+    for i = 1, #tiers do
+        parts[#parts + 1] = TierMark(tiers[i].quality, tiers[i].atlas) .. " " .. Num(tiers[i].count)
+    end
+    return table.concat(parts, " · ")
+end
+
+local function AddTierLine(tooltip, row)
+    if not row.showTiers then return end
+    local text = RowTiers(row)
+    if text then tooltip:AddLine(TIER_INDENT .. text, 1, 1, 1, false) end
 end
 
 -- ── 字号：作用于**整个提示框**（含游戏自带内容与其他插件添加的行） ────
@@ -361,9 +690,11 @@ local function AddCountBlock(tooltip, itemID)
         lineIndexes[1] = tooltip:NumLines()
         if rows[1].isPlayer then underlineLine = lineIndexes[1] end
     end
+    AddTierLine(tooltip, rows[1])
     for i = 2, #rows do
         tooltip:AddDoubleLine(RowPrefix(rows[i]), RowDetail(rows[i]), 1, 1, 1, 1, 1, 1, false)
         if type(tooltip.NumLines) == "function" then lineIndexes[i] = tooltip:NumLines() end
+        AddTierLine(tooltip, rows[i])
     end
     if SL:Get("showTotal") then
         local grand = 0
@@ -529,3 +860,19 @@ SL:Subscribe("CONFIG_CHANGED", function()
     -- 字号/勾选变化后，同样让已经打开的提示框立即更新（例如面板开着改字号）
     SL:Debounce("tooltipRefresh", 0.05, RefreshShownTooltips)
 end)
+
+-- 品质归组请客户端加载过的物品数据到货 → 可能有新的同名品质变体可认，重画正在显示的提示框。
+-- 只在"确实请求过加载"时才处理：GET_ITEM_INFO_RECEIVED 在登录阶段会成百上千次地发，
+-- 没必要为它白白作废缓存。
+function SL:GET_ITEM_INFO_RECEIVED()
+    if not waitingForItemData then return end
+    SL:Debounce("qualityRefresh", 0.1, function()
+        waitingForItemData = false
+        ClearCache()
+        RefreshShownTooltips()
+    end)
+end
+
+if SL.frame and type(SL.frame.RegisterEvent) == "function" then
+    SL.frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+end

@@ -65,7 +65,8 @@ function defaultScenario() {
     containers: {},                          // bagID -> [{itemID,stackCount,itemName,iconFileID,quality}]
     equip: {},                               // slot -> {itemID,link,texture,quality}；已装备态的**唯一事实源**
     bankTabIDs: { 0: [6, 7, 9], 1: [], 2: [12, 14] },  // BankType: Character/Guild/Account
-    itemMeta: {},                            // itemID -> {name,icon,quality}
+    itemMeta: {},                            // itemID -> {name,icon,quality}；品质材料再加 craftingQuality/iconChat
+                                             //   nameLoaded === false = 物品数据未载入（GetItemNameByID/GetItemInfo 返回 nil）
     itemCount: {},                           // itemID -> C_Item.GetItemCount 基准计数（**含已装备**，与客户端口径一致）
     itemCountBank: {},                       // itemID -> 角色银行（includeBank=true 时相加）
     itemCountReagent: {},                    // itemID -> 材料银行（includeReagentBank=true 时相加）
@@ -83,6 +84,7 @@ function createWowMock(opts) {
   const calls = [];        // mock 调用日志
   const errors = [];       // 事件分发 / timer / pcall 中捕获的 Lua 错误
   const printLog = [];     // print() 捕获
+  const loadRequests = []; // C_Item.RequestLoadItemDataByID 请求过的 itemID（测试用 deliverItemData 送达）
   const frames = {};       // id -> frame meta
   const eventRegistry = {};// event -> Set<frameId>
   const timers = {};       // timerId -> {delay,fnRef,remaining,scheduledFor}
@@ -765,6 +767,66 @@ function createWowMock(opts) {
         lua.lua_pushnumber(Ls, n);
         return 1;
       },
+
+      // —— 物品信息（12.1.0 apidoc 实核：ItemDocumentation.lua）——
+      // GetItemInfoInstant 是"免加载"路径：物品在客户端库里就能拿到类型/图标，
+      // 名字则要等数据载入（GetItemNameByID 在载入前返回 nil）。
+      GetItemInfoInstant: function (Ls) {
+        logApi('C_Item.GetItemInfoInstant', Ls);
+        const id = lua.lua_tonumber(Ls, 1);
+        const m = scenario.itemMeta[id];
+        if (!m) { lua.lua_pushnil(Ls); return 1; }
+        lua.lua_pushnumber(Ls, id);
+        lua.lua_pushstring(Ls, utf8ls(m.itemType || 'Tradegoods'));
+        lua.lua_pushstring(Ls, utf8ls(m.itemSubType || ''));
+        lua.lua_pushstring(Ls, utf8ls(m.itemEquipLoc || ''));
+        lua.lua_pushnumber(Ls, m.icon == null ? 1 : m.icon);
+        lua.lua_pushnumber(Ls, m.classID == null ? 7 : m.classID);
+        lua.lua_pushnumber(Ls, m.subClassID == null ? 11 : m.subClassID);
+        return 7;
+      },
+      GetItemNameByID: function (Ls) {
+        logApi('C_Item.GetItemNameByID', Ls);
+        const id = lua.lua_tonumber(Ls, 1);
+        const m = scenario.itemMeta[id];
+        if (!m || m.nameLoaded === false) { lua.lua_pushnil(Ls); return 1; }
+        lua.lua_pushstring(Ls, utf8ls(m.name || ('Item' + id)));
+        return 1;
+      },
+      RequestLoadItemDataByID: function (Ls) {
+        logApi('C_Item.RequestLoadItemDataByID', Ls);
+        const id = lua.lua_tonumber(Ls, 1);
+        loadRequests.push(id);
+        return 0;                              // 真机是异步的：送达靠 deliverItemData(id) + GET_ITEM_INFO_RECEIVED
+      },
+    };
+
+    // —— C_TradeSkillUI（品质材料）——
+    // 12.1.0 apidoc 实核：GetItemReagentQualityByItemInfo → 品质序号（非品质材料返回 nil）；
+    // GetItemReagentQualityInfo → CraftingQualityInfo（.iconChat 是提示框里用的品质图集）。
+    // 制造材料按品质拆成**不同 itemID**（同名同图标），这两个函数就是插件分辨品质的入口。
+    // 物品数据未载入（nameLoaded === false）时一并返回 nil：真机上品质信息要不要等数据到货
+    // 无法确证，装置按"更苛刻"的时序建模，强迫插件对两种时序都成立。
+    g.C_TradeSkillUI = {
+      GetItemReagentQualityByItemInfo: function (Ls) {
+        logApi('C_TradeSkillUI.GetItemReagentQualityByItemInfo', Ls);
+        const id = lua.lua_tonumber(Ls, 1);
+        const m = scenario.itemMeta[id];
+        if (!m || m.nameLoaded === false || m.craftingQuality == null) { lua.lua_pushnil(Ls); return 1; }
+        lua.lua_pushnumber(Ls, m.craftingQuality);
+        return 1;
+      },
+      GetItemReagentQualityInfo: function (Ls) {
+        logApi('C_TradeSkillUI.GetItemReagentQualityInfo', Ls);
+        const id = lua.lua_tonumber(Ls, 1);
+        const m = scenario.itemMeta[id];
+        if (!m || m.nameLoaded === false || m.craftingQuality == null) { lua.lua_pushnil(Ls); return 1; }
+        pushJsValue(Ls, {
+          quality: m.craftingQuality,
+          iconChat: m.iconChat || ('Professions-Icon-Quality-Tier' + m.craftingQuality),
+        });
+        return 1;
+      },
     };
 
     // —— Enum ——
@@ -861,6 +923,16 @@ function createWowMock(opts) {
     g.time = function (Ls) { lua.lua_pushnumber(Ls, scenario.clock); return 1; };
     g.GetLocale = function (Ls) { lua.lua_pushstring(Ls, utf8ls(scenario.locale)); return 1; };
     g.GetMoney = function (Ls) { lua.lua_pushnumber(Ls, scenario.money || 0); return 1; };
+    // FrameXML 全局（与 GetInventoryItemID 同类：不在 apidoc 里，但暴雪自己的界面代码在调用）：
+    // CreateAtlasMarkup(atlasName, width, height[, offsetX, offsetY]) → 可嵌进 FontString 的 |T 标记。
+    g.CreateAtlasMarkup = function (Ls) {
+      logApi('CreateAtlasMarkup', Ls);
+      const atlas = jsArg(Ls, 1) || '';
+      const w = lua.lua_tonumber(Ls, 2) || 0;
+      const h = lua.lua_tonumber(Ls, 3) || 0;
+      lua.lua_pushstring(Ls, utf8ls('|T' + atlas + ':' + w + ':' + h + '|t'));
+      return 1;
+    };
     g.UnitClass = function (Ls) {
       const p = scenario.player;
       lua.lua_pushstring(Ls, utf8ls(p.localizedClass || p.class));
@@ -911,7 +983,7 @@ function createWowMock(opts) {
       logApi('GetItemInfo', Ls);
       const id = lua.lua_tonumber(Ls, 1);
       const m = scenario.itemMeta[id];
-      if (!m) { lua.lua_pushnil(Ls); return 1; }
+      if (!m || m.nameLoaded === false) { lua.lua_pushnil(Ls); return 1; }
       lua.lua_pushstring(Ls, utf8ls(m.name || ('Item' + id)));
       lua.lua_pushstring(Ls, utf8ls('item:' + id + ':0:0:0:0:0:0:0'));
       lua.lua_pushnumber(Ls, m.quality || 1);
@@ -1347,6 +1419,14 @@ function createWowMock(opts) {
     setEquip(slot, info) { scenario.equip[slot] = info; },
     setBankTabs(bankType, ids) { scenario.bankTabIDs[bankType] = ids; },
     setItemMeta(id, meta) { scenario.itemMeta[id] = meta; },
+    // 送达一件"尚未载入"的物品数据：整条 meta 替换（避免改到跨用例共享的对象）并派发事件，
+    // 对应真机的 GET_ITEM_INFO_RECEIVED(itemID, success)。
+    deliverItemData(id) {
+      const m = scenario.itemMeta[id];
+      if (m) scenario.itemMeta[id] = Object.assign({}, m, { nameLoaded: true });
+      fireEvent('GET_ITEM_INFO_RECEIVED', id, true);
+    },
+    loadRequests,
     setItemCount(id, count) { scenario.itemCount[id] = count; },
     // 让 itemID 恰好占据 count 个装备槽（自 1 号槽起找空位），并清掉其它持有它的槽。
     // 已装备态只认 scenario.equip（= 真机 GetInventoryItemID 的数据源），不再有并行计数模型。

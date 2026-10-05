@@ -2,8 +2,9 @@
 # Docs: https://github.com/BigWigsMods/packager
 #
 # This mirrors what tools/build-release.ps1 already ships in StockTake-<version>.zip:
-# 14 runtime files inside StockTake/ — 5 Lua + .toc + Media/StockTake-Icon.tga
-# + LICENSE.txt + README{,.en,.zhTW}.md + CHANGELOG{,.en,.zhTW}.md
+# 12 runtime files inside StockTake/ — 5 Lua + .toc + Media/StockTake-Icon.tga
+# + LICENSE.txt + README{,.en}.md + CHANGELOG{,.en}.md
+# (繁體文档自 0.9.6 起已从仓库移除，打包也不再包含。)
 # Everything listed under "ignore" is development-only and must stay out of any package.
 
 package-as: StockTake
