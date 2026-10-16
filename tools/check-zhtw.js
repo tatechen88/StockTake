@@ -9,6 +9,15 @@
  *
  * 只做"简体专用字"检查（如 设/显/号/银/录/记…），不检查用词是否地道——
  * 用語由人工与测试用例保证（見 simple-smoke.js 第 7b/8 节）。
+ *
+ * 检查范围按文件类型收窄，避免"本来就该是简体"的内容被报成繁体里的简体字：
+ *   · .lua → 只查 `local zhTW = {` 区块（三语同文件）；
+ *   · .toc → 只查 `## Title-zhTW:` / `## Notes-zhTW:` 两行（zhCN 与中文注释不查）；
+ *   · 其他 → 全文。
+ *
+ * 不传参数 = 检查默认文件集（三份繁体版内容：两份繁体文档、繁体语言表、toc 的繁体行）。
+ * 显式点名的文件**不存在即失败**：点名的东西没被检查过，报绿等于假绿；
+ * 只有"确实没有可查内容"（.lua 里没有 zhTW 区块、.toc 里没有 zhTW 行）才算 SKIP。
  */
 'use strict';
 const fs = require('fs');
@@ -134,15 +143,27 @@ const CN2TW = {
 // 允许出现的例外（角色名等用户数据、命令字面量）
 const ALLOW_CHARS = new Set([]);
 
-const files = process.argv.slice(2);
-if (files.length === 0) {
-  console.error('usage: node tools/check-zhtw.js <file...>');
-  process.exit(2);
-}
+const files = process.argv.slice(2).length > 0
+  ? process.argv.slice(2)
+  : ['README.zhTW.md', 'CHANGELOG.zhTW.md', 'Locales.lua', 'StockTake.toc'];
 
 let total = 0;
+let missing = 0;
 for (const f of files) {
-  let text = fs.readFileSync(f, 'utf8');
+  let text;
+  try {
+    text = fs.readFileSync(f, 'utf8');
+  } catch (e) {
+    // 点名要查的文件却读不到：必须失败。静默跳过会让"文档又被删了"这类回归一路绿灯。
+    const name = f.split(/[\\/]/).pop();
+    if (e.code === 'ENOENT') {
+      console.log('FAIL ' + name + '（文件不存在，点名要查的文件必须存在）');
+    } else {
+      console.log('FAIL ' + name + '（读取失败：' + e.message + '）');
+    }
+    missing += 1;
+    continue;
+  }
   const name = f.split(/[\\/]/).pop();
   let scope = '全文';
   // Lua 文件里三语共存（zhCN/zhTW/enUS 三张表 + 中文注释），只检查 zhTW 区块
@@ -156,6 +177,16 @@ for (const f of files) {
     const endIdx = rest.indexOf('\n}');
     text = endIdx === -1 ? rest : rest.slice(0, endIdx);
     scope = 'local zhTW 区块';
+  } else if (/\.toc$/i.test(f)) {
+    // .toc 里三语同文件共存：`## Title-zhCN:` / `## Notes-zhCN:` 与中文注释**本来就该是简体**，
+    // 按全文检查必然假阳性。只取 zhTW 那两行来查。
+    const tw = text.split(/\r?\n/).filter((line) => /^\s*##\s*(Title|Notes)-zhTW\s*:/.test(line));
+    if (tw.length === 0) {
+      console.log('SKIP ' + name + '（未找到 Title-zhTW / Notes-zhTW 行，跳过）');
+      continue;
+    }
+    text = tw.join('\n');
+    scope = 'Title-zhTW / Notes-zhTW 行';
   }
   const lines = text.split(/\r?\n/);
   const hits = [];
@@ -173,5 +204,5 @@ for (const f of files) {
     total += hits.length;
   }
 }
-console.log('\n合计命中（简体字出现在繁体内容里）：' + total);
-process.exit(total === 0 ? 0 : 1);
+console.log('\n合计命中（简体字出现在繁体内容里）：' + total + (missing ? '；点名但缺失的文件：' + missing : ''));
+process.exit(total === 0 && missing === 0 ? 0 : 1);

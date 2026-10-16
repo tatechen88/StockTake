@@ -40,9 +40,13 @@ param(
     # 400 / errorCode 1007。权威对照表（带 X-Api-Token 请求）：
     #   GET https://wow.curseforge.com/api/game/versions
     # 返回 { id, gameVersionTypeID, name, slug, apiVersion }；gameVersionTypeID
-    # 517 = WoW Retail，apiVersion 才是 Interface 号。下面三项对应 toc 声明的
+    # 517 = WoW Retail，apiVersion 才是 Interface 号。下面三项对应旧 toc 声明里的
     # Interface 120100 / 120007 / 120005：
     #   12.1.0 → 16519   12.0.7 → 16238   12.0.5 → 15855
+    # ⚠️ toc 已加 12.1.5（Interface 120105），但 12.1.5 的 CurseForge 版本 ID **本机未核实**
+    #（权威来源同上 GET /api/game/versions，需要 X-Api-Token；本仓库无 token 不查）。
+    # 真要上线 1.0.1 前先查一次，把 ID 加进下面的默认值——上传时 gameVersions 少一项，
+    # 商店页就不会把 1.0.1 标成支持 12.1.5。
     [int[]]$GameVersions = @(16519, 16238, 15855),
     [string]$DisplayName,
     [string]$Changelog,

@@ -66,7 +66,9 @@ function defaultScenario() {
     equip: {},                               // slot -> {itemID,link,texture,quality}；已装备态的**唯一事实源**
     bankTabIDs: { 0: [6, 7, 9], 1: [], 2: [12, 14] },  // BankType: Character/Guild/Account
     itemMeta: {},                            // itemID -> {name,icon,quality}；品质材料再加 craftingQuality/iconChat
-                                             //   nameLoaded === false = 物品数据未载入（GetItemNameByID/GetItemInfo 返回 nil）
+                                             //   nameLoaded === false = 物品名字数据未载入（GetItemNameByID/GetItemInfo 返回 nil）
+                                             //   qualityLoaded === false = 品质数据未载入（两个 GetItemReagentQuality* 返回 nil）
+                                             //   两者**互相独立**：真机上名字与品质是两份数据，到货时序不保证
     itemCount: {},                           // itemID -> C_Item.GetItemCount 基准计数（**含已装备**，与客户端口径一致）
     itemCountBank: {},                       // itemID -> 角色银行（includeBank=true 时相加）
     itemCountReagent: {},                    // itemID -> 材料银行（includeReagentBank=true 时相加）
@@ -802,17 +804,19 @@ function createWowMock(opts) {
     };
 
     // —— C_TradeSkillUI（品质材料）——
-    // 12.1.0 apidoc 实核：GetItemReagentQualityByItemInfo → 品质序号（非品质材料返回 nil）；
+    // 12.1.0 / 12.1.5 apidoc 实核：GetItemReagentQualityByItemInfo → 品质序号（非品质材料返回 nil）；
     // GetItemReagentQualityInfo → CraftingQualityInfo（.iconChat 是提示框里用的品质图集）。
     // 制造材料按品质拆成**不同 itemID**（同名同图标），这两个函数就是插件分辨品质的入口。
-    // 物品数据未载入（nameLoaded === false）时一并返回 nil：真机上品质信息要不要等数据到货
-    // 无法确证，装置按"更苛刻"的时序建模，强迫插件对两种时序都成立。
+    // 品质数据与名字数据**独立到货**：nameLoaded === false 时返回 nil（名字都没到，品质更无从谈起），
+    // qualityLoaded === false 时也返回 nil（名字已可读、品质还没到 —— 真机上完全可能）。
     g.C_TradeSkillUI = {
       GetItemReagentQualityByItemInfo: function (Ls) {
         logApi('C_TradeSkillUI.GetItemReagentQualityByItemInfo', Ls);
         const id = lua.lua_tonumber(Ls, 1);
         const m = scenario.itemMeta[id];
-        if (!m || m.nameLoaded === false || m.craftingQuality == null) { lua.lua_pushnil(Ls); return 1; }
+        if (!m || m.nameLoaded === false || m.qualityLoaded === false || m.craftingQuality == null) {
+          lua.lua_pushnil(Ls); return 1;
+        }
         lua.lua_pushnumber(Ls, m.craftingQuality);
         return 1;
       },
@@ -820,7 +824,9 @@ function createWowMock(opts) {
         logApi('C_TradeSkillUI.GetItemReagentQualityInfo', Ls);
         const id = lua.lua_tonumber(Ls, 1);
         const m = scenario.itemMeta[id];
-        if (!m || m.nameLoaded === false || m.craftingQuality == null) { lua.lua_pushnil(Ls); return 1; }
+        if (!m || m.nameLoaded === false || m.qualityLoaded === false || m.craftingQuality == null) {
+          lua.lua_pushnil(Ls); return 1;
+        }
         pushJsValue(Ls, {
           quality: m.craftingQuality,
           iconChat: m.iconChat || ('Professions-Icon-Quality-Tier' + m.craftingQuality),
@@ -1420,10 +1426,17 @@ function createWowMock(opts) {
     setBankTabs(bankType, ids) { scenario.bankTabIDs[bankType] = ids; },
     setItemMeta(id, meta) { scenario.itemMeta[id] = meta; },
     // 送达一件"尚未载入"的物品数据：整条 meta 替换（避免改到跨用例共享的对象）并派发事件，
-    // 对应真机的 GET_ITEM_INFO_RECEIVED(itemID, success)。
+    // 对应真机的 GET_ITEM_INFO_RECEIVED(itemID, success)。名字与品质一并视为到货。
     deliverItemData(id) {
       const m = scenario.itemMeta[id];
-      if (m) scenario.itemMeta[id] = Object.assign({}, m, { nameLoaded: true });
+      if (m) scenario.itemMeta[id] = Object.assign({}, m, { nameLoaded: true, qualityLoaded: true });
+      fireEvent('GET_ITEM_INFO_RECEIVED', id, true);
+    },
+    // 只送达**品质**数据（名字此刻已可读）：模拟"名字先到、品质后到"的时序，
+    // 真机上两者是独立数据，这条时序不能靠"名字到了品质就一定到了"来掩盖。
+    deliverItemQuality(id) {
+      const m = scenario.itemMeta[id];
+      if (m) scenario.itemMeta[id] = Object.assign({}, m, { nameLoaded: true, qualityLoaded: true });
       fireEvent('GET_ITEM_INFO_RECEIVED', id, true);
     },
     loadRequests,

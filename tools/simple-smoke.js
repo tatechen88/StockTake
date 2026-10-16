@@ -1318,6 +1318,30 @@ function markQuality(mock, id, name, quality, opts) {
   ok(texts.some((t) => t.indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 9') !== -1), '15) 5 星的星标行补上');
 }
 {
+  // 15m 名字先到、**品质后到**：不得写成永久负缓存。
+  // 真机上名字与品质是两份独立数据，到货时序不保证。旧实现对"名字可读、品质 nil"直接
+  // 写 metaCache[id] = false（永不失效），一旦品质后到货，该品质整个会话都归不了组。
+  const { mock } = load(Object.assign({}, SCENARIO, { containers: { 0: [it(1000, 1), it(1005, 9)] } }));
+  lifecycle(mock);
+  markQuality(mock, 1000, '微光宝石尘', 1);
+  markQuality(mock, 1005, '微光宝石尘', 5, { qualityLoaded: false });   // 名字在、品质还没到
+  mock.setItemCount(1000, 1);
+  mock.setItemCount(1005, 9);
+  mock.invokeItemTooltipFlow(mock.gameTooltip, { id: 1000 }, [{ type: 'ItemName', text: '微光宝石尘' }]);
+  let texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts.some((t) => t.indexOf('TestChar') !== -1 && /: 1 /.test(t)),
+    '15) 品质未到货时先按已知的那一件显示（实际：' + texts.join(' ') + '）');
+  ok(mock.loadRequests.indexOf(1005) !== -1,
+    '15) 名字已可读但品质未到货时也要请客户端加载（否则品质永远到不了）');
+  mock.deliverItemQuality(1005);
+  mock.advanceTime(0.2);                            // 0.1 去抖后重放已显示的提示框
+  texts = readLines(mock, 'GameTooltip').map((l) => l.text);
+  ok(texts.some((t) => t.indexOf('TestChar') !== -1 && /: 10/.test(t)),
+    '15) 品质到货后自动重画并归组：总数变 10（实际：' + texts.join(' ') + '）');
+  ok(texts.some((t) => t.indexOf('|TProfessions-Icon-Quality-Tier5:16:16|t 9') !== -1),
+    '15) 后到货的 5 星星标行补上');
+}
+{
   // 15f 性能护栏：登录阶段 GET_ITEM_INFO_RECEIVED 会成百上千次，没请求过加载就不该重画
   const { mock } = load(SCENARIO);
   lifecycle(mock);

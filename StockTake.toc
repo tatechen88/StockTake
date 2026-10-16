@@ -1,4 +1,4 @@
-## Interface: 120100, 120007, 120005
+## Interface: 120105, 120100, 120007, 120005
 ## Title: |cffe6b84cStockTake|r
 ## Title-zhCN: |cffe6b84c数量盘点|r
 ## Title-zhTW: |cffe6b84c數量盤點|r
@@ -6,7 +6,7 @@
 ## Notes-zhCN: 在物品提示框显示背包 / 银行 / 其他角色持有的数量，字号可调。
 ## Notes-zhTW: 在物品提示資訊顯示背包 / 銀行 / 其他角色持有的數量，字型大小可調整。
 ## Author: Tate_Chen
-## Version: 1.0
+## Version: 1.0.1
 ## SavedVariables: SL2_DB
 ## X-Category: Bags & Inventory
 ## X-Curse-Project-ID: 1714499

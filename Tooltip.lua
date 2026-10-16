@@ -78,12 +78,14 @@ local function ReagentQuality(itemID)
         local ok, quality = pcall(fn, itemID)
         if ok and type(quality) == "number" and quality > 0 then return quality end
     end
-    -- 兜底：CraftingQualityInfo 里的档号（同作者 CraftPro 在真机核实过的字段；个别版本叫 qualityID）
+    -- 兜底：CraftingQualityInfo.quality —— 该结构体里唯一的档号字段。
+    -- （曾写过 `info.qualityID` 兜底：12.1.0 / 12.1.5 官方 apidoc 的 CraftingQualityInfo 都**没有**
+    --  这个字段，永不命中；留着只会让人以为它存在。）
     local infoFn = ts and ts.GetItemReagentQualityInfo
     if type(infoFn) == "function" then
         local ok, info = pcall(infoFn, itemID)
         if ok and type(info) == "table" then
-            local quality = info.quality or info.qualityID
+            local quality = info.quality
             if type(quality) == "number" and quality > 0 then return quality end
         end
     end
@@ -127,19 +129,29 @@ local function ItemNameByID(itemID)
     return nil
 end
 
--- 物品数据还没载入时请客户端加载，到货（GET_ITEM_INFO_RECEIVED）后再重画一次提示框
-local waitingForItemData = false
+-- 物品数据还没载入时请客户端加载，到货（GET_ITEM_INFO_RECEIVED）后再重画一次提示框。
+-- loadRequested 记下**已经请过**的 ID：提示框会随鼠标移动反复重建，不记就会对同一件
+-- 反复发请求。某个 ID 的数据到货（事件带 itemID）后把它从表里摘掉，还有没到货的就继续等。
+local loadRequested = {}
+
+local function ItemLoadPending()
+    return next(loadRequested) ~= nil
+end
 
 local function RequestItemData(itemID)
     local fn = C_Item and C_Item.RequestLoadItemDataByID
     if type(fn) ~= "function" then return end
-    waitingForItemData = true
+    if loadRequested[itemID] then return end
+    loadRequested[itemID] = true
     pcall(fn, itemID)
 end
 
--- itemID -> { quality, icon, name, atlas } | false（不是带品质的制造材料 / 客户端没有这个 ID）。
--- quality 或 name 为 nil = 物品数据还没载入（真机上名字要等数据到货，品质也可能要），
--- 这种"暂时读不到"不下负结论、也不写缓存，下次再试。
+-- itemID -> { quality, icon, name, atlas } | false（客户端物品库里没有这个 ID / 确认不是带品质的制造材料）。
+-- 名字与品质是**两份独立的数据**，到货时序不保证：可能名字已能读、品质还是 nil。
+-- 所以"品质读不到"**不等于**"不是品质材料"——这种半截结果只作为临时结论返回、**不进缓存**，
+-- 下次再试；一旦品质与名字都读得到，才能下"不是品质材料"的定论（metaCache = false）。
+-- （曾把"名字可读 + 品质 nil"直接写成永久负缓存：若真机是品质后到货，该品质会在整个会话里
+--  被永久判为非材料、永不归组；metaCache 从不被 ClearCache 清，所以是不可恢复的。）
 local metaCache = {}
 
 local function MetaOf(itemID)
@@ -160,12 +172,13 @@ local function MetaOf(itemID)
     end
     local quality = ReagentQuality(itemID)
     local name = ItemNameByID(itemID)
-    if quality == nil and name == nil then
-        return { icon = icon }                 -- 数据未载入：暂时不下结论（不缓存）
+    if name == nil then
+        -- 名字还没到货：还不知道是不是品质材料，不下结论、也不缓存
+        return { icon = icon }
     end
     if quality == nil then
-        metaCache[itemID] = false              -- 数据已载入，但不是带品质的制造材料 → 定论
-        return false
+        -- 名字有了、品质还没有：可能只是品质数据后到货 → 临时结论，不缓存
+        return { icon = icon, name = name }
     end
     meta = { quality = quality, icon = icon, name = name, atlas = ReagentAtlas(itemID) }
     metaCache[itemID] = meta
@@ -235,7 +248,9 @@ local function CollectVariants(itemID)
         local meta = MetaOf(id)
         if not meta then return end
         if meta.name == nil or meta.quality == nil then
-            -- 数据未载入：同图标才值得请客户端加载（限量）
+            -- 数据未载入（可能只到了名字、品质还没到）：同图标才值得请客户端加载。
+            -- 同名但图标不同的品质材料本来就不并组，为它发加载请求没有意义。
+            -- 是否真的发得出去由 RequestItemData 自己按 ID 去重。
             if meta.icon == icon then RequestItemData(id) end
         elseif meta.name == name then
             found[id] = meta
@@ -862,12 +877,13 @@ SL:Subscribe("CONFIG_CHANGED", function()
 end)
 
 -- 品质归组请客户端加载过的物品数据到货 → 可能有新的同名品质变体可认，重画正在显示的提示框。
--- 只在"确实请求过加载"时才处理：GET_ITEM_INFO_RECEIVED 在登录阶段会成百上千次地发，
--- 没必要为它白白作废缓存。
-function SL:GET_ITEM_INFO_RECEIVED()
-    if not waitingForItemData then return end
+-- 只在"确实有请求在等"时才处理：GET_ITEM_INFO_RECEIVED 在登录阶段会成百上千次地发，
+-- 没必要为它白白作废缓存。事件带 itemID（12.x apidoc：GET_ITEM_INFO_RECEIVED(itemID, success)），
+-- 把到货的那件从等待表里摘掉，其余仍在等的不受影响。
+function SL:GET_ITEM_INFO_RECEIVED(itemID)
+    if not ItemLoadPending() then return end
+    if type(itemID) == "number" then loadRequested[itemID] = nil end
     SL:Debounce("qualityRefresh", 0.1, function()
-        waitingForItemData = false
         ClearCache()
         RefreshShownTooltips()
     end)

@@ -4,6 +4,31 @@
 > The full internal history of earlier versions (0.9.2 and before) stays in the Simplified
 > Chinese [`CHANGELOG.md`](CHANGELOG.md).
 
+## 1.0.1 — 2026-10-16 · 12.1.5 compatibility fixes
+
+> A fix-only release. No counting rule and no layout changed; the saved-variables format is unchanged.
+
+### Fixed
+- **`.toc` now declares 12.1.5's `## Interface: 120105`** (was `120100, 120007, 120005`).
+  The client on this machine is already 12.1.5, and a missing entry gets the addon flagged
+  out-of-date, so it would not load.
+- **A quality tier whose data arrives late is no longer misjudged for good.** A readable item
+  name with a still-`nil` quality used to be written as a **permanent** negative cache entry
+  (`metaCache` is never cleared), so if quality data arrived after the name that tier could never
+  be grouped for the rest of the session and the counts came up short. Such a half-filled result
+  is now a temporary conclusion only, the ID is asked to load, and the tooltip redraws when the
+  quality data arrives (`GET_ITEM_INFO_RECEIVED`).
+- Removed the fallback to `CraftingQualityInfo.qualityID`, a field that **does not exist**: in the
+  official 12.1.5 apidoc `CraftingQualityInfo` only has `quality` (`qualityID` belongs to a
+  different structure). The code could never hit it and only implied the field was real.
+
+### Note
+- A 12.1.5 apidoc mirror now exists (`Gethe/wow-ui-source` tag `12.1.5`, 623 files) and the fifth
+  gate was run against it: 10 API reference points, 0 problems. Test cases 261 → 265.
+- The Traditional Chinese documents were restored under the keep-all-three-languages rule: this entry is mirrored in [`CHANGELOG.zhTW.md`](CHANGELOG.zhTW.md).
+
+---
+
 ## 1.0 — 2026-10-05 · First stable release: per-tier counts for same-name quality reagents
 
 > **1.0 is the first stable (Release) build.** Every "where do the numbers come from" rule now matches

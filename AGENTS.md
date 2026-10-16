@@ -8,7 +8,7 @@ WoW 插件：把全账号的物品数量显示在物品提示框上。
 
 | 位置 | 说明 |
 |---|---|
-| 仓库根 | 插件运行文件 + 双语 README / CHANGELOG + `LICENSE.txt` |
+| 仓库根 | 插件运行文件 + 三语 README / CHANGELOG + `LICENSE.txt` |
 | `Media/` | 插件列表图标（`.tga`），随包发布 |
 | `tools/` | 语法检查、弃用 API 审计、无头冒烟测试、打包与上传脚本 |
 | `docs/` | 公开文档：审计报告、打码后的截图、CurseForge 双语描述 |
@@ -22,7 +22,7 @@ WoW 插件：把全账号的物品数量显示在物品提示框上。
 node tools/lua-check.js .     # Lua 语法
 node tools/api-audit.js .     # 本项目历史踩过的弃用 / 不存在 API（规则表）
 node tools/simple-smoke.js    # 无头冒烟测试（fengari VM + 自建 API 模拟层）
-node tools/check-zhtw.js      # 繁体文案里混进简体字（仓库已无繁体文档，保留脚本备用）
+node tools/check-zhtw.js      # 繁体文案里混进简体字（不带参数 = 查两份繁体文档 + 繁体语言表 + toc 繁体行；点名的文件缺失即失败）
 ```
 
 第 5 道关卡（与**官方 apidoc** 对表，抓"引用了不存在的 API"最有效）：
@@ -40,8 +40,8 @@ apidoc 镜像的取法：从 Gethe/wow-ui-source 上**与本机客户端 build �
 
 ## 硬性规则
 
-1. **双语文案必须同改**：`README.md` + `README.en.md`、`CHANGELOG.md` + `CHANGELOG.en.md`（2026-10-02 起文档只维护「English / 中文」；不再有繁體文档）。**游戏内语言表仍保持三语** —— `Locales.lua` 的三张表与 `.toc` 的 `Title-*` / `Notes-*` 是玩家端能力，不随文档语言调整而删。
-2. **语言只称「中文 / English」**（代码语言键为 `zhCN` / `enUS` / `zhTW`），不出现任何地区性字样。
+1. **三语文案必须同改**：`README{,.en,.zhTW}.md`、`CHANGELOG{,.en,.zhTW}.md`、`Locales.lua` 的三张表、`.toc` 的 `Title-*` / `Notes-*`。繁體文档在 2026-10-02 曾被移除，2026-10-16 已按本规则恢复（`README.zhTW.md` / `CHANGELOG.zhTW.md`）。加新语言时最容易漏的是**旧语言的主文档**（中文 / English README 的语言行）。
+2. **语言只称「中文 / 繁體中文 / English」**（代码语言键为 `zhCN` / `enUS` / `zhTW`），不出现任何地区性字样。
 3. **Lua 与 .toc 用 LF 行尾、UTF-8 无 BOM**（`.gitattributes` 已固定行尾）。
 4. **默认值必须"不干预"**：任何全局生效的设置，默认值都要让它装上等于没装。
 5. **改 API 前先实核**：以官方 apidoc（对应客户端 build）为准，别信记忆与二手转述。注意 apidoc **不收录老式全局函数**（如 `GetInventoryItemID`），"apidoc 里没有"不能单独定罪一个 API 不存在——需要 wiki 或游戏内 `/dump` 交叉。
