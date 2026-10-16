@@ -13,8 +13,8 @@
       1. 在 https://authors.curseforge.com 建好项目，拿到**数字项目 ID**（About Project 里）；
       2. 在 CurseForge 账号页生成 API Token，放进环境变量 CF_API_TOKEN（不要写进任何文件）。
 
-    关于 -GameVersions：传的是 CurseForge **自己的整数版本 ID**，既不是 "12.1.0" 这样的
-    字符串，也不是 toc 的 Interface 号——12.1.0 的 ID 是 16519，而它的 Interface 是 120100。
+    关于 -GameVersions：传的是 CurseForge **自己的整数版本 ID**，既不是 "12.1.5" 这样的
+    字符串，也不是 toc 的 Interface 号——12.1.5 的 ID 是 16984，而它的 Interface 是 120105。
     权威对照表：GET https://wow.curseforge.com/api/game/versions（带 X-Api-Token），
     返回项里的 gameVersionTypeID = 517 即 WoW Retail。传字符串会被 400/1002 拒绝，
     传不存在的 ID 会被 400/1007 拒绝。
@@ -34,20 +34,19 @@ param(
     [string]$ZipPath = (Get-ChildItem -Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'dist') -Filter '*.zip' -File |
                         Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName),
     [ValidateSet('release', 'beta', 'alpha')][string]$ReleaseType = 'release',
-    # 注意：CurseForge 的 gameVersions 要的是它**自己的整数版本 ID**——既不是 "12.1.0"
-    # 这样的字符串，也不是 toc 的 Interface 号（两者不同：12.1.0 的 ID 是 16519，
-    # 但 Interface 是 120100）。传字符串 → 400 / errorCode 1002；传不存在的 ID →
+    # 注意：CurseForge 的 gameVersions 要的是它**自己的整数版本 ID**——既不是 "12.1.5"
+    # 这样的字符串，也不是 toc 的 Interface 号（两者不同：12.1.5 的 ID 是 16984，
+    # 但 Interface 是 120105）。传字符串 → 400 / errorCode 1002；传不存在的 ID →
     # 400 / errorCode 1007。权威对照表（带 X-Api-Token 请求）：
     #   GET https://wow.curseforge.com/api/game/versions
     # 返回 { id, gameVersionTypeID, name, slug, apiVersion }；gameVersionTypeID
-    # 517 = WoW Retail，apiVersion 才是 Interface 号。下面三项对应旧 toc 声明里的
-    # Interface 120100 / 120007 / 120005：
-    #   12.1.0 → 16519   12.0.7 → 16238   12.0.5 → 15855
-    # ⚠️ toc 已加 12.1.5（Interface 120105），但 12.1.5 的 CurseForge 版本 ID **本机未核实**
-    #（权威来源同上 GET /api/game/versions，需要 X-Api-Token；本仓库无 token 不查）。
-    # 真要上线 1.0.1 前先查一次，把 ID 加进下面的默认值——上传时 gameVersions 少一项，
-    # 商店页就不会把 1.0.1 标成支持 12.1.5。
-    [int[]]$GameVersions = @(16519, 16238, 15855),
+    # 517 = WoW Retail，apiVersion 才是 Interface 号。下面四项对应 toc 声明过的
+    # Interface 120105 / 120100 / 120007 / 120005：
+    #   12.1.5 → 16984   12.1.0 → 16519   12.0.7 → 16238   12.0.5 → 15855
+    # 12.1.5 的 ID 已按上述权威来源核实（记忆库《CurseForge 发布与维护手册》§14.1）。
+    # 保留旧版本 ID 是为了让 1.0.0 等历史包的版本标签继续可解析；新版本上线前若 toc 又
+    # 抬了 Interface，仍需先查一次并加进下面的默认值——少一项，商店页就不会标成支持它。
+    [int[]]$GameVersions = @(16984, 16519, 16238, 15855),
     [string]$DisplayName,
     [string]$Changelog,
     [string]$ChangelogFile,
@@ -138,7 +137,7 @@ Ok "上传成功，CurseForge 文件 ID: $($resp.id)"
 Write-Host @"
 
 后续（上传后会被审核，"Under Review" 是正常的）：
-  1. 到项目 Files 页确认版本标签是 12.1.0、类型是 Release；
+  1. 到项目 Files 页确认版本标签是 12.1.5、类型是 Release；
   2. 把这两行写回 .toc 并重新打包下一个版本：
        ## X-Curse-Project-ID: $ProjectId
        ## X-Website: https://www.curseforge.com/wow/addons/<你的slug>
